@@ -1,0 +1,680 @@
+{
+  "items": [
+    {
+      "name": "Тростник",
+      "image": "unknown_items/unknown_d7233d8697.png"
+    },
+    {
+      "name": "Бамбук",
+      "image": "unknown_items/unknown_3dc2c77a8e.png"
+    },
+    {
+      "name": "Арбуз",
+      "image": "unknown_items/unknown_630b7e6fff.png"
+    },
+    {
+      "name": "Семена свеклы",
+      "image": "unknown_items/unknown_21a347c458.png"
+    },
+    {
+      "name": "Ящик со свёклой",
+      "image": "unknown_items/unknown_42b192e4cd.png"
+    },
+    {
+      "name": "Томат",
+      "image": "unknown_items/unknown_9f431ab528.png"
+    },
+    {
+      "name": "Ящик с томатами",
+      "image": "unknown_items/unknown_dfdc352e84.png"
+    },
+    {
+      "name": "Семена пшеницы",
+      "image": "unknown_items/unknown_e875d3f281.png"
+    },
+    {
+      "name": "Мешок с семенами",
+      "image": "unknown_items/unknown_82e3e1c430.png"
+    },
+    {
+      "name": "Мешок риса",
+      "image": "unknown_items/unknown_2831e3cc1c.png"
+    },
+    {
+      "name": "Рис",
+      "image": "unknown_items/unknown_247374f2e0.png"
+    },
+    {
+      "name": "Кактус",
+      "image": "unknown_items/unknown_3529820657.png"
+    },
+    {
+      "name": "Мрачный кактус",
+      "image": "unknown_items/unknown_d0838cf2f4.png"
+    },
+    {
+      "name": "Морковь",
+      "image": "unknown_items/unknown_0495e33de9.png"
+    },
+    {
+      "name": "Картофель",
+      "image": "unknown_items/unknown_5347da3ef4.png"
+    },
+    {
+      "name": "Ящик с картофелем",
+      "image": "unknown_items/unknown_97cc2ce5e0.png"
+    },
+    {
+      "name": "Пшеница",
+      "image": "unknown_items/unknown_fd37ec3446.png"
+    },
+    {
+      "name": "Сноп сена",
+      "image": "unknown_items/unknown_adff9b586d.png"
+    },
+    {
+      "name": "Хлеб",
+      "image": "unknown_items/unknown_b4e3660f1e.png"
+    },
+    {
+      "name": "Пшеничное тесто",
+      "image": "unknown_items/unknown_b56ed50e20.png"
+    },
+    {
+      "name": "Мешок с хлебом",
+      "image": "unknown_items/unknown_c034900200.png"
+    },
+    {
+      "name": "Ламинария",
+      "image": "unknown_items/unknown_11d4a60819.png"
+    },
+    {
+      "name": "Жареная баранина",
+      "image": "unknown_items/unknown_4f79838e49.png"
+    },
+    {
+      "name": "Сырая водоплавающая дичь",
+      "image": "unknown_items/unknown_87f9c17c11.png"
+    },
+    {
+      "name": "Приготовленная водоплавающая дичь",
+      "image": "unknown_items/unknown_41f3dcefde.png"
+    },
+    {
+      "name": "Кроличья лапка",
+      "image": "unknown_items/unknown_296b7f024a.png"
+    },
+    {
+      "name": "Жареная курица",
+      "image": "unknown_items/unknown_ea16fac5df.png"
+    },
+    {
+      "name": "Золотая морковь",
+      "image": "unknown_items/unknown_28df20e597.png"
+    },
+    {
+      "name": "Ящик с золотой морковкой",
+      "image": "unknown_items/unknown_d524ba1dfd.png"
+    },
+    {
+      "name": "Приготовленная оленина",
+      "image": "unknown_items/unknown_1ac7033e27.png"
+    },
+    {
+      "name": "Сырая оленина",
+      "image": "unknown_items/unknown_528d9a2f2f.png"
+    },
+    {
+      "name": "Сырая оленина",
+      "image": "unknown_items/unknown_7b31eed35f.png"
+    },
+    {
+      "name": "Bear meat",
+      "image": "unknown_items/unknown_db16044369.png"
+    },
+    {
+      "name": "Сырая крольчатина",
+      "image": "unknown_items/unknown_3bcf31ca59.png"
+    },
+    {
+      "name": "Жареная крольчатина",
+      "image": "unknown_items/unknown_2b971dfccb.png"
+    },
+    {
+      "name": "Жареная свинина",
+      "image": "unknown_items/unknown_38953bdde2.png"
+    },
+    {
+      "name": "Сырая свинина",
+      "image": "unknown_items/unknown_1454e93e6c.png"
+    },
+    {
+      "name": "Стейк",
+      "image": "unknown_items/unknown_ba1f0a2d33.png"
+    },
+    {
+      "name": "Яйцо",
+      "image": "unknown_items/unknown_36acf79189.png"
+    },
+    {
+      "name": "Ящик с яйцами",
+      "image": "unknown_items/unknown_4f04606c02.png"
+    },
+    {
+      "name": "Хинкали",
+      "image": "unknown_items/unknown_b9176be574.png"
+    },
+    {
+      "name": "Голубцы",
+      "image": "unknown_items/unknown_483360e16b.png"
+    },
+    {
+      "name": "Жареный рис",
+      "image": "unknown_items/unknown_ade3e44c47.png"
+    },
+    {
+      "name": "Сырая индейка",
+      "image": "unknown_items/unknown_7e6aca21c4.png"
+    },
+    {
+      "name": "Приготовленная индейка",
+      "image": "unknown_items/unknown_9cda1645c0.png"
+    },
+    {
+      "name": "Рис с грибами",
+      "image": "unknown_items/unknown_2873bce3a2.png"
+    },
+    {
+      "name": "Овощная лапша",
+      "image": "unknown_items/unknown_9871a44ec9.png"
+    },
+    {
+      "name": "Ломтик ролла из ламинарии",
+      "image": "unknown_items/unknown_e5248743c9.png"
+    },
+    {
+      "name": "Печенье из сладких ягод",
+      "image": "unknown_items/unknown_465a1ec36c.png"
+    },
+    {
+      "name": "Запечённая тушеная треска",
+      "image": "unknown_items/unknown_34897e9241.png"
+    },
+    {
+      "name": "Рудная медь",
+      "image": "unknown_items/unknown_d756ee83a2.png"
+    },
+    {
+      "name": "Блок рудной меди",
+      "image": "unknown_items/unknown_e4efaab99b.png"
+    },
+    {
+      "name": "Слиток меди",
+      "image": "unknown_items/unknown_a0cc6d2fb0.png"
+    },
+    {
+      "name": "Кусочек меди",
+      "image": "unknown_items/unknown_cb0f47d56e.png"
+    },
+    {
+      "name": "Медный блок",
+      "image": "unknown_items/unknown_bda72f7292.png"
+    },
+    {
+      "name": "Блок рудного железа",
+      "image": "unknown_items/unknown_4f4f5a759e.png"
+    },
+    {
+      "name": "Блок рудного золота",
+      "image": "unknown_items/unknown_36f8461314.png"
+    },
+    {
+      "name": "Рудное золото",
+      "image": "unknown_items/unknown_1c1cc963fc.png"
+    },
+    {
+      "name": "Золотой слиток",
+      "image": "unknown_items/unknown_15eb452a7d.png"
+    },
+    {
+      "name": "Золотой блок",
+      "image": "unknown_items/unknown_cd6da02224.png"
+    },
+    {
+      "name": "Редстоуновая пыль",
+      "image": "unknown_items/unknown_84fd414247.png"
+    },
+    {
+      "name": "Редстоуновый блок",
+      "image": "unknown_items/unknown_37dba5da25.png"
+    },
+    {
+      "name": "Лазурит",
+      "image": "unknown_items/unknown_479e9ce2d8.png"
+    },
+    {
+      "name": "Лазуритовый блок",
+      "image": "unknown_items/unknown_4ed7727928.png"
+    },
+    {
+      "name": "Изумруд",
+      "image": "unknown_items/unknown_fd6c2db6ba.png"
+    },
+    {
+      "name": "Изумрудовый блок",
+      "image": "unknown_items/unknown_98cb4b8dfa.png"
+    },
+    {
+      "name": "Уголь",
+      "image": "unknown_items/unknown_7e84f2534a.png"
+    },
+    {
+      "name": "Угольный блок",
+      "image": "unknown_items/unknown_95e61e07c4.png"
+    },
+    {
+      "name": "Незерский кварц",
+      "image": "unknown_items/unknown_6489f83332.png"
+    },
+    {
+      "name": "Аметистовый блок",
+      "image": "unknown_items/unknown_d1f00371da.png"
+    },
+    {
+      "name": "Осколок аметиста",
+      "image": "unknown_items/unknown_ea1a4630f7.png"
+    },
+    {
+      "name": "Незерская золотая руда",
+      "image": "unknown_items/unknown_a7546d62e5.png"
+    },
+    {
+      "name": "Древесный уголь",
+      "image": "unknown_items/unknown_4be73cc160.png"
+    },
+    {
+      "name": "Бревно тёмного дуба",
+      "image": "unknown_items/unknown_078794062a.png"
+    },
+    {
+      "name": "Вишнёвая древесина",
+      "image": "unknown_items/unknown_7ff21cbbb9.png"
+    },
+    {
+      "name": "Бревно каштана",
+      "image": "unknown_items/unknown_13b8fbfde9.png"
+    },
+    {
+      "name": "Бревно белого дуба",
+      "image": "unknown_items/unknown_7c2d8ecf55.png"
+    },
+    {
+      "name": "Бревно сумеречного дуба",
+      "image": "unknown_items/unknown_64a9e38b45.png"
+    },
+    {
+      "name": "Бревно соснового дерева",
+      "image": "unknown_items/unknown_21e7abe49d.png"
+    },
+    {
+      "name": "Мангровое дерево",
+      "image": "unknown_items/unknown_7b69357b31.png"
+    },
+    {
+      "name": "Дубовое бревно",
+      "image": "unknown_items/unknown_b56f45c041.png"
+    },
+    {
+      "name": "Еловое бревно",
+      "image": "unknown_items/unknown_f950672507.png"
+    },
+    {
+      "name": "Бревно джунглевого дерева",
+      "image": "unknown_items/unknown_c6c54254bf.png"
+    },
+    {
+      "name": "Багровая ножка",
+      "image": "unknown_items/unknown_84bc704cb7.png"
+    },
+    {
+      "name": "Еловая древесина",
+      "image": "unknown_items/unknown_88ae2a0e4e.png"
+    },
+    {
+      "name": "Бревно тёмного дерева",
+      "image": "unknown_items/unknown_3f34466e2c.png"
+    },
+    {
+      "name": "Сумеречный дуб",
+      "image": "unknown_items/unknown_90737e43b0.png"
+    },
+    {
+      "name": "Глина",
+      "image": "unknown_items/unknown_d5be0594fe.png"
+    },
+    {
+      "name": "Комок глины",
+      "image": "unknown_items/unknown_1ebacaffd7.png"
+    },
+    {
+      "name": "Песок",
+      "image": "unknown_items/unknown_732994a2ec.png"
+    },
+    {
+      "name": "Стекло",
+      "image": "unknown_items/unknown_d6e660fb1b.png"
+    },
+    {
+      "name": "Земля",
+      "image": "unknown_items/unknown_0eacde12cf.png"
+    },
+    {
+      "name": "Булыжник",
+      "image": "unknown_items/unknown_0891dd5b07.png"
+    },
+    {
+      "name": "Гравий",
+      "image": "unknown_items/unknown_0abbf454e2.png"
+    },
+    {
+      "name": "Кость",
+      "image": "unknown_items/unknown_2a4c935c48.png"
+    },
+    {
+      "name": "Паучий глаз",
+      "image": "unknown_items/unknown_b57bf8ab29.png"
+    },
+    {
+      "name": "Порох",
+      "image": "unknown_items/unknown_ce4c3b1cc9.png"
+    },
+    {
+      "name": "Холст",
+      "image": "unknown_items/unknown_cc05bc6dcd.png"
+    },
+    {
+      "name": "Кремень",
+      "image": "unknown_items/unknown_aba78b9b87.png"
+    },
+    {
+      "name": "Перо",
+      "image": "unknown_items/unknown_1b0bb289e0.png"
+    },
+    {
+      "name": "Гнилая плоть",
+      "image": "unknown_items/unknown_f2efe6038e.png"
+    },
+    {
+      "name": "Апатит",
+      "image": "unknown_items/unknown_3ef945a758.png"
+    },
+    {
+      "name": "Мшистый флюорит",
+      "image": "unknown_items/unknown_8a41efc6b8.png"
+    },
+    {
+      "name": "Эндер-жемчуг",
+      "image": "unknown_items/unknown_06afb41191.png"
+    },
+    {
+      "name": "Кроличья шкура",
+      "image": "unknown_items/unknown_804b33c1a5.png"
+    },
+    {
+      "name": "Полоска кожи",
+      "image": "unknown_items/unknown_acb6ebc3cb.png"
+    },
+    {
+      "name": "Оленья кожа",
+      "image": "unknown_items/unknown_86e7daacb3.png"
+    },
+    {
+      "name": "Шкура хоглина",
+      "image": "unknown_items/unknown_77eb5e5c0e.png"
+    },
+    {
+      "name": "Костный блок",
+      "image": "unknown_items/unknown_71915f1e99.png"
+    },
+    {
+      "name": "Жир",
+      "image": "unknown_items/unknown_1496b76977.png"
+    },
+    {
+      "name": "Свёкла",
+      "image": "unknown_items/unknown_a12f25f655.png"
+    },
+    {
+      "name": "Белый краситель",
+      "image": "unknown_items/unknown_52f5ce39b9.png"
+    },
+    {
+      "name": "Синий краситель",
+      "image": "unknown_items/unknown_748bf1df57.png"
+    },
+    {
+      "name": "Зелёный краситель",
+      "image": "unknown_items/unknown_4050a767d5.png"
+    },
+    {
+      "name": "Козий мех",
+      "image": "unknown_items/unknown_e74a9bfef2.png"
+    },
+    {
+      "name": "Светящийся чернильный мешок",
+      "image": "unknown_items/unknown_78a5afa688.png"
+    },
+    {
+      "name": "Оранжевый краситель",
+      "image": "unknown_items/unknown_23d8f427d0.png"
+    },
+    {
+      "name": "Пурпурный краситель",
+      "image": "unknown_items/unknown_4df3a141ec.png"
+    },
+    {
+      "name": "Голубой краситель",
+      "image": "unknown_items/unknown_928299cd05.png"
+    },
+    {
+      "name": "Розовый краситель",
+      "image": "unknown_items/unknown_9e798c919f.png"
+    },
+    {
+      "name": "Светло-серый краситель",
+      "image": "unknown_items/unknown_8068fd6191.png"
+    },
+    {
+      "name": "Фиолетовый краситель",
+      "image": "unknown_items/unknown_5e9b96cbbc.png"
+    },
+    {
+      "name": "Красный краситель",
+      "image": "unknown_items/unknown_eec6248e04.png"
+    },
+    {
+      "name": "Чёрный краситель",
+      "image": "unknown_items/unknown_e8dd296202.png"
+    },
+    {
+      "name": "Лаймовый краситель",
+      "image": "unknown_items/unknown_8f4273ff9c.png"
+    },
+    {
+      "name": "Серый краситель",
+      "image": "unknown_items/unknown_4c195ab1ef.png"
+    },
+    {
+      "name": "Бирюзовый краситель",
+      "image": "unknown_items/unknown_053dd3e75b.png"
+    },
+    {
+      "name": "Белая шерсть",
+      "image": "unknown_items/unknown_2a1df3f41e.png"
+    },
+    {
+      "name": "Оранжевая шерсть",
+      "image": "unknown_items/unknown_f5efd3298b.png"
+    },
+    {
+      "name": "Пурпурная шерсть",
+      "image": "unknown_items/unknown_fd09c8d1a3.png"
+    },
+    {
+      "name": "Жёлтая шерсть",
+      "image": "unknown_items/unknown_a07b0b7c87.png"
+    },
+    {
+      "name": "Лаймовая шерсть",
+      "image": "unknown_items/unknown_437e61e531.png"
+    },
+    {
+      "name": "Розовая шерсть",
+      "image": "unknown_items/unknown_3164d7fb3e.png"
+    },
+    {
+      "name": "Светло-серая шерсть",
+      "image": "unknown_items/unknown_e9aa974335.png"
+    },
+    {
+      "name": "Синяя шерсть",
+      "image": "unknown_items/unknown_461ffbcaa9.png"
+    },
+    {
+      "name": "Коричневая шерсть",
+      "image": "unknown_items/unknown_31f942c588.png"
+    },
+    {
+      "name": "Чёрная шерсть",
+      "image": "unknown_items/unknown_4ac92e7d1a.png"
+    },
+    {
+      "name": "Паутина",
+      "image": "unknown_items/unknown_159c43f82b.png"
+    },
+    {
+      "name": "Нить",
+      "image": "unknown_items/unknown_55d9f14857.png"
+    },
+    {
+      "name": "Красная нить",
+      "image": "unknown_items/unknown_7aea3aa0dc.png"
+    },
+    {
+      "name": "Подмостки",
+      "image": "unknown_items/unknown_716d7c6e4c.png"
+    },
+    {
+      "name": "Сгусток слизи",
+      "image": "unknown_items/unknown_4da92b6085.png"
+    },
+    {
+      "name": "Бутылочка мёда",
+      "image": "unknown_items/unknown_50cbb883db.png"
+    },
+    {
+      "name": "Камень",
+      "image": "unknown_items/unknown_d4afe4ebc9.png"
+    },
+    {
+      "name": "Колотый глубинный сланец",
+      "image": "unknown_items/unknown_d922adaf1d.png"
+    },
+    {
+      "name": "Глубинный сланец",
+      "image": "unknown_items/unknown_ecbee364c6.png"
+    },
+    {
+      "name": "Капуста",
+      "image": "unknown_items/unknown_fbf50f4713.png"
+    },
+    {
+      "name": "Лист капусты",
+      "image": "unknown_items/unknown_d5c3c67dc8.png"
+    },
+    {
+      "name": "Ящик с капустой",
+      "image": "unknown_items/unknown_eb00d90710.png"
+    },
+    {
+      "name": "Семена капусты",
+      "image": "unknown_items/unknown_7e8c209175.png"
+    },
+    {
+      "name": "Ящик с луком",
+      "image": "unknown_items/unknown_03d7560069.png"
+    },
+    {
+      "name": "Лук",
+      "image": "unknown_items/unknown_81a665a933.png"
+    },
+    {
+      "name": "Органический компост",
+      "image": "unknown_items/unknown_793f9eed0b.png"
+    },
+    {
+      "name": "Плодородная почва",
+      "image": "unknown_items/unknown_24e0b91c40.png"
+    },
+    {
+      "name": "Ломтик тыквы",
+      "image": "unknown_items/unknown_1ed0213231.png"
+    },
+    {
+      "name": "Тыква",
+      "image": "unknown_items/unknown_7731d46a24.png"
+    },
+    {
+      "name": "Семена тыквы",
+      "image": "unknown_items/unknown_472bdd51bd.png"
+    },
+    {
+      "name": "Ящик с ломтиками тыквы",
+      "image": "unknown_items/unknown_f32d72859e.png"
+    },
+    {
+      "name": "Гриб",
+      "image": "unknown_items/unknown_2d1d491089.png"
+    },
+    {
+      "name": "Ящик с красными грибами",
+      "image": "unknown_items/unknown_2c52d40c05.png"
+    },
+    {
+      "name": "Ящик с коричневыми грибами",
+      "image": "unknown_items/unknown_bef95a3853.png"
+    },
+    {
+      "name": "Росток души",
+      "image": "unknown_items/unknown_8fa839d57d.png"
+    },
+    {
+      "name": "Черника",
+      "image": "unknown_items/unknown_ca283c1af5.png"
+    },
+    {
+      "name": "Светящиеся ягоды",
+      "image": "unknown_items/unknown_f4e383e2f9.png"
+    },
+    {
+      "name": "Bloom berries",
+      "image": "unknown_items/unknown_f2a90d69f3.png"
+    },
+    {
+      "name": "Ящик со сладкими ягодами",
+      "image": "unknown_items/unknown_0997cd770d.png"
+    },
+    {
+      "name": "Тюк соломы",
+      "image": "unknown_items/unknown_34f12ad48e.png"
+    },
+    {
+      "name": "Ядовитый картофель",
+      "image": "unknown_items/unknown_a57d659a45.png"
+    },
+    {
+      "name": "Рудное железо",
+      "image": "unknown_items/unknown_442ce7d0ba.png"
+    }
+  ]
+}

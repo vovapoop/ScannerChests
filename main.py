@@ -36,6 +36,7 @@ RESULTS_FILE = os.path.join(RESULTS_DIR, "chests.json")
 DISCORD_TABLE_IMAGE_FILE = os.path.join(RESULTS_DIR, "discord_items_table.png")
 DISCORD_TABLE_IMAGE_PREFIX = os.path.join(RESULTS_DIR, "discord_items_table_part")
 DISCORD_MESSAGE_IDS_FILE = os.path.join(RESULTS_DIR, "discord_message_ids.json")
+DISCORD_WEBHOOK_FILE = os.path.join(BASE_DIR, "discord_webhook.json")
 
 
 # ============================================================
@@ -98,6 +99,44 @@ DEFAULT_CONFIG = {
 # ============================================================
 # ОБЩИЕ ФУНКЦИИ
 # ============================================================
+
+def get_discord_webhook_url(env_name="DISCORD_WEBHOOK_URL"):
+    """Возвращает Discord webhook из отдельного файла или запрашивает его при первом запуске."""
+    saved = load_json(DISCORD_WEBHOOK_FILE, {})
+
+    if isinstance(saved, dict):
+        webhook_url = str(saved.get("webhook_url", "")).strip()
+        if webhook_url:
+            return webhook_url
+
+    # Для обратной совместимости сначала проверяем переменную окружения.
+    webhook_url = os.getenv(env_name, "").strip()
+    if webhook_url:
+        save_json(DISCORD_WEBHOOK_FILE, {"webhook_url": webhook_url})
+        print(f"[DISCORD] Webhook сохранён в {os.path.basename(DISCORD_WEBHOOK_FILE)}")
+        return webhook_url
+
+    print()
+    print("=" * 60)
+    print("Первый запуск: настройка Discord")
+    print("Вставьте URL Discord Webhook.")
+    print("Он будет сохранён в отдельный файл discord_webhook.json.")
+    print("=" * 60)
+
+    while True:
+        try:
+            webhook_url = input("DISCORD_WEBHOOK_URL: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n[DISCORD] Настройка отменена.")
+            return None
+
+        if webhook_url:
+            save_json(DISCORD_WEBHOOK_FILE, {"webhook_url": webhook_url})
+            print(f"[DISCORD] Webhook сохранён в {os.path.basename(DISCORD_WEBHOOK_FILE)}")
+            return webhook_url
+
+        print("[DISCORD] URL не может быть пустым. Попробуйте ещё раз.")
+
 
 def ensure_directories():
     """Создаёт папки программы, если их ещё нет."""
@@ -373,6 +412,16 @@ class ChestReader:
             winsound.Beep(1175, 180)
         except Exception as error:
             print(f"[ЗВУК] Не удалось воспроизвести сигнал: {error}")
+
+    def play_scan_start_sound(self):
+        """
+        Короткий сигнал в момент начала реального сканирования.
+        Работает в Windows.
+        """
+        try:
+            winsound.Beep(700, 100)
+        except Exception as error:
+            print(f"[ЗВУК] Не удалось воспроизвести сигнал начала сканирования: {error}")
 
     def print_startup_status(self):
         print("\n===================================================")
@@ -1326,6 +1375,9 @@ class ChestReader:
 
         self.last_chest_hash = chest_hash
 
+        # Сигнализируем о фактическом начале распознавания сундука.
+        self.play_scan_start_sound()
+
         slots = self.get_slots(screen)
 
         slot_list = []
@@ -1781,12 +1833,9 @@ class ChestReader:
             "DISCORD_WEBHOOK_URL"
         )
 
-        webhook_url = os.getenv(env_name)
+        webhook_url = get_discord_webhook_url(env_name)
 
         if not webhook_url:
-            print(
-                f"[DISCORD] Не задана переменная окружения {env_name}."
-            )
             return
 
         if not os.path.exists(RESULTS_FILE):

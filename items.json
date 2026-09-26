@@ -675,6 +675,22 @@
     {
       "name": "Рудное железо",
       "image": "unknown_items/unknown_442ce7d0ba.png"
+    },
+    {
+      "name": "Костная мука",
+      "image": "unknown_items/unknown_35732357e3.png"
+    },
+    {
+      "name": "Андезит",
+      "image": "unknown_items/unknown_4621264b6c.png"
+    },
+    {
+      "name": "Железный слиток",
+      "image": "unknown_items/unknown_b0da52fa72.png"
+    },
+    {
+      "name": "Диорит",
+      "image": "unknown_items/unknown_3bfc91f39c.png"
     }
   ]
 }

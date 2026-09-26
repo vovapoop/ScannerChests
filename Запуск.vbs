@@ -1,54 +1,76 @@
 Option Explicit
 
-Dim shell, fso, scriptDir, batPath, webhookFile
-Dim webhookUrl, file, text
+Dim shell, fso
+Dim scriptDir, mainPath, venvPythonW
+Dim logPath, logFile, command
 
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
-batPath = fso.BuildPath(scriptDir, "start.bat")
-webhookFile = fso.BuildPath(scriptDir, "discord_webhook.json")
+shell.CurrentDirectory = scriptDir
 
-' Ask for Discord webhook on first launch.
-If Not fso.FileExists(webhookFile) Then
-    webhookUrl = InputBox( _
-        "Enter Discord Webhook URL." & vbCrLf & vbCrLf & _
-        "It will be saved to discord_webhook.json.", _
-        "Discord setup", _
-        "")
+mainPath = fso.BuildPath(scriptDir, "main.py")
+venvPythonW = fso.BuildPath(scriptDir, ".venv\Scripts\pythonw.exe")
+logPath = fso.BuildPath(scriptDir, "launcher.log")
 
-    webhookUrl = Trim(webhookUrl)
+WriteLog logPath, "Launcher started: " & Now
 
-    If webhookUrl = "" Then
-        MsgBox "Discord Webhook URL was not entered." & vbCrLf & _
-               "The program will not start.", _
-               vbExclamation, "Chest Scanner"
-        WScript.Quit
-    End If
-
-    If InStr(1, webhookUrl, "https://discord.com/api/webhooks/", vbTextCompare) <> 1 _
-       And InStr(1, webhookUrl, "https://discordapp.com/api/webhooks/", vbTextCompare) <> 1 Then
-        MsgBox "This does not look like a Discord Webhook URL." & vbCrLf & _
-               "Please check the URL and run Zapusk.vbs again.", _
-               vbExclamation, "Chest Scanner"
-        WScript.Quit
-    End If
-
-    text = "{""webhook_url"":""" & webhookUrl & """}"
-
-    Set file = fso.CreateTextFile(webhookFile, True, False)
-    file.Write text
-    file.Close
-    Set file = Nothing
+If Not fso.FileExists(mainPath) Then
+    WriteLog logPath, "ERROR: main.py not found: " & mainPath
+    MsgBox "main.py not found:" & vbCrLf & vbCrLf & mainPath, vbCritical, "Chest Scanner"
+    WScript.Quit 1
 End If
 
-' Start the program hidden.
-If fso.FileExists(batPath) Then
-    shell.Run """" & batPath & """", 0, False
-Else
-    MsgBox "start.bat was not found next to this script.", vbCritical, "Chest Scanner"
+' Existing virtual environment: start directly with pythonw.exe.
+If fso.FileExists(venvPythonW) Then
+    command = Quote(venvPythonW) & " " & Quote(mainPath)
+    WriteLog logPath, "Launching venv pythonw: " & command
+    shell.Run command, 0, False
+    WScript.Quit 0
 End If
 
-Set fso = Nothing
-Set shell = Nothing
+' First run: let main.py create the virtual environment.
+If CanRun(shell, "pyw.exe -3 --version") Then
+    command = "pyw.exe -3 " & Quote(mainPath)
+    WriteLog logPath, "Launching pyw: " & command
+    shell.Run command, 0, False
+    WScript.Quit 0
+End If
+
+If CanRun(shell, "pythonw.exe --version") Then
+    command = "pythonw.exe " & Quote(mainPath)
+    WriteLog logPath, "Launching pythonw: " & command
+    shell.Run command, 0, False
+    WScript.Quit 0
+End If
+
+WriteLog logPath, "ERROR: Python launcher not found."
+MsgBox "Python was not found." & vbCrLf & vbCrLf & _
+       "See launcher.log for details.", vbCritical, "Chest Scanner"
+WScript.Quit 1
+
+Function Quote(value)
+    Quote = Chr(34) & value & Chr(34)
+End Function
+
+Function CanRun(shellObj, commandText)
+    Dim resultCode, errorNumber
+    On Error Resume Next
+    Err.Clear
+    resultCode = shellObj.Run(commandText, 0, True)
+    errorNumber = Err.Number
+    Err.Clear
+    On Error GoTo 0
+    CanRun = (errorNumber = 0 And resultCode = 0)
+End Function
+
+Sub WriteLog(path, message)
+    Dim fileObj
+    On Error Resume Next
+    Set fileObj = fso.OpenTextFile(path, 8, True, -1)
+    fileObj.WriteLine message
+    fileObj.Close
+    Set fileObj = Nothing
+    On Error GoTo 0
+End Sub

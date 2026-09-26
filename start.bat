@@ -1,31 +1,56 @@
 @echo off
-chcp 65001 >nul
+setlocal EnableExtensions
 cd /d "%~dp0"
 
-echo ========================================
-echo     Minecraft Chest Scanner
- echo ========================================
-echo.
+set "VENV=%~dp0.venv"
+set "PYTHON_EXE=%VENV%\Scripts\python.exe"
+set "PYTHONW_EXE=%VENV%\Scripts\pythonw.exe"
 
-where py >nul 2>&1
-if %errorlevel%==0 (
-    py main.py
-    goto :end
+if not exist "%~dp0main.py" (
+    msg * "main.py не найден рядом с start.bat."
+    exit /b 1
 )
 
-where python >nul 2>&1
-if %errorlevel%==0 (
-    python main.py
-    goto :end
+REM Find system Python only when the virtual environment does not exist.
+if not exist "%PYTHON_EXE%" (
+    set "SYSTEM_PYTHON="
+    where py >nul 2>&1
+    if not errorlevel 1 set "SYSTEM_PYTHON=py -3"
+
+    if not defined SYSTEM_PYTHON (
+        where python >nul 2>&1
+        if not errorlevel 1 set "SYSTEM_PYTHON=python"
+    )
+
+    if not defined SYSTEM_PYTHON (
+        msg * "Python 3 не найден. Установите Python и запустите Запуск.vbs снова."
+        exit /b 1
+    )
+
+    "%SYSTEM_PYTHON%" -m venv "%VENV%" >nul 2>&1
+    if errorlevel 1 (
+        msg * "Не удалось создать виртуальное окружение .venv."
+        exit /b 1
+    )
 )
 
-echo Python не найден.
-echo Установите Python 3 и запустите start.bat снова.
-pause
+if not exist "%PYTHON_EXE%" (
+    msg * "Python в .venv не найден."
+    exit /b 1
+)
 
-:end
+REM Install/update required packages inside the virtual environment.
+"%PYTHON_EXE%" -m pip install --disable-pip-version-check --no-cache-dir -q opencv-python keyboard numpy pyautogui requests pillow
 if errorlevel 1 (
-    echo.
-    echo Программа завершилась с ошибкой.
-    pause
+    msg * "Не удалось установить необходимые библиотеки."
+    exit /b 1
 )
+
+REM Run without a console window.
+if exist "%PYTHONW_EXE%" (
+    start "" /b "%PYTHONW_EXE%" "%~dp0main.py"
+) else (
+    start "" /b "%PYTHON_EXE%" "%~dp0main.py"
+)
+
+exit /b 0

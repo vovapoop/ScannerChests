@@ -1951,14 +1951,14 @@ class ScannerGUI:
         self._log("Горячие клавиши F6–F10 активны.")
 
     def _prompt_unknown_item(self, unknown_name, image_path):
-        """Показывает окно для названия нового предмета из GUI."""
+        """Показывает окно для названия нового предмета вместе с его иконкой."""
         result = {"name": ""}
         done = threading.Event()
 
         def show_dialog():
             dialog = tk.Toplevel(self.root)
             dialog.title("Новый предмет")
-            dialog.geometry("520x230")
+            dialog.geometry("640x340")
             dialog.resizable(False, False)
             dialog.configure(bg=self.BG)
             dialog.transient(self.root)
@@ -1968,20 +1968,67 @@ class ScannerGUI:
                 dialog, text="Найден новый предмет", bg=self.BG, fg=self.TEXT,
                 font=("Segoe UI", 17, "bold")
             ).pack(anchor="w", padx=24, pady=(22, 4))
+
+            body = tk.Frame(dialog, bg=self.BG)
+            body.pack(fill="both", expand=True, padx=24, pady=(10, 0))
+
+            # Блок с иконкой обнаруженного предмета.
+            icon_frame = tk.Frame(
+                body,
+                bg=self.PANEL,
+                highlightbackground=self.BORDER,
+                highlightthickness=1,
+                width=140,
+                height=140,
+            )
+            icon_frame.pack(side="left", anchor="n", padx=(0, 20))
+            icon_frame.pack_propagate(False)
+
+            icon_label = tk.Label(
+                icon_frame,
+                text="Нет\nиконки",
+                bg=self.PANEL,
+                fg=self.MUTED,
+                font=("Segoe UI", 9),
+            )
+            icon_label.pack(expand=True)
+
+            # PNG сохраняется add_unknown_item() до открытия этого окна,
+            # поэтому здесь можно сразу показать именно найденную иконку.
+            try:
+                if image_path and os.path.isfile(image_path):
+                    icon_image = tk.PhotoImage(file=image_path)
+
+                    # Иконки неизвестных предметов сохраняются в 32x32.
+                    # Увеличиваем до 96x96 для удобного просмотра.
+                    if icon_image.width() <= 48 and icon_image.height() <= 48:
+                        icon_image = icon_image.zoom(3, 3)
+
+                    icon_label.configure(image=icon_image, text="")
+                    # Tkinter требует хранить ссылку на PhotoImage,
+                    # иначе изображение может исчезнуть после создания Label.
+                    icon_label.image = icon_image
+            except Exception as error:
+                print(f"[ПРЕДМЕТ] Не удалось показать иконку: {error}")
+
+            info = tk.Frame(body, bg=self.BG)
+            info.pack(side="left", fill="both", expand=True)
+
             tk.Label(
-                dialog, text=f"Шаблон: {unknown_name}", bg=self.BG, fg=self.MUTED,
+                info, text=f"Шаблон: {unknown_name}", bg=self.BG, fg=self.MUTED,
                 font=("Segoe UI", 9)
-            ).pack(anchor="w", padx=24)
+            ).pack(anchor="w")
+
             tk.Label(
-                dialog, text="Введите название предмета:", bg=self.BG, fg=self.TEXT,
+                info, text="Введите название предмета:", bg=self.BG, fg=self.TEXT,
                 font=("Segoe UI", 10)
-            ).pack(anchor="w", padx=24, pady=(18, 6))
+            ).pack(anchor="w", pady=(24, 6))
 
             entry = tk.Entry(
-                dialog, bg=self.PANEL_2, fg=self.TEXT, insertbackground=self.TEXT,
+                info, bg=self.PANEL_2, fg=self.TEXT, insertbackground=self.TEXT,
                 relief="flat", font=("Segoe UI", 11)
             )
-            entry.pack(fill="x", padx=24, ipady=8)
+            entry.pack(fill="x", ipady=8)
             entry.focus_set()
 
             buttons = tk.Frame(dialog, bg=self.BG)

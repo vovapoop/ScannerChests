@@ -12,9 +12,11 @@ import numpy as np
 import pyautogui
 import requests
 
-from PIL import Image, ImageDraw, ImageFont
-
 import winsound
+import threading
+import tkinter as tk
+from tkinter import ttk, messagebox
+from queue import Queue, Empty
 
 # ============================================================
 # ПУТИ
@@ -32,11 +34,8 @@ RESULTS_DIR = os.path.join(BASE_DIR, "results")
 UNKNOWN_DIR = os.path.join(BASE_DIR, "unknown_items")
 
 RESULTS_FILE = os.path.join(RESULTS_DIR, "chests.json")
-
-DISCORD_TABLE_IMAGE_FILE = os.path.join(RESULTS_DIR, "discord_items_table.png")
-DISCORD_TABLE_IMAGE_PREFIX = os.path.join(RESULTS_DIR, "discord_items_table_part")
+HISTORY_DIR = os.path.join(RESULTS_DIR, "history")
 DISCORD_MESSAGE_IDS_FILE = os.path.join(RESULTS_DIR, "discord_message_ids.json")
-DISCORD_WEBHOOK_FILE = os.path.join(BASE_DIR, "discord_webhook.json")
 
 
 # ============================================================
@@ -77,7 +76,6 @@ DEFAULT_CONFIG = {
 
     "discord_webhook_env": "DISCORD_WEBHOOK_URL",
     "discord_max_items_in_message": 25,
-    "discord_delete_old_messages": True,
 
     # Формат сообщения Discord. Все эти параметры можно менять в config.json.
     "discord_message": {
@@ -85,9 +83,8 @@ DEFAULT_CONFIG = {
         "scanned_chests": "Отсканировано сундуков: **{chests}**",
         "last_scan": "Время последнего сканирования: **{last_scan}**",
         "items_title": "══════════Предметы══════════",
-        "columns": "Иконка | Название | Всего | Стаков",
-        "item": "{icon} | {name} | {total} | {stacks}",
-        "item_icon": "📦",
+        "columns": "Название | Всего | Стаков",
+        "item": "{name} | {total} | {stacks}",
         "stack_size": 64,
         "item_separator": "\n",
         "unknown_title": "══════════Неизвестные предметы══════════",
@@ -100,49 +97,12 @@ DEFAULT_CONFIG = {
 # ОБЩИЕ ФУНКЦИИ
 # ============================================================
 
-def get_discord_webhook_url(env_name="DISCORD_WEBHOOK_URL"):
-    """Возвращает Discord webhook из отдельного файла или запрашивает его при первом запуске."""
-    saved = load_json(DISCORD_WEBHOOK_FILE, {})
-
-    if isinstance(saved, dict):
-        webhook_url = str(saved.get("webhook_url", "")).strip()
-        if webhook_url:
-            return webhook_url
-
-    # Для обратной совместимости сначала проверяем переменную окружения.
-    webhook_url = os.getenv(env_name, "").strip()
-    if webhook_url:
-        save_json(DISCORD_WEBHOOK_FILE, {"webhook_url": webhook_url})
-        print(f"[DISCORD] Webhook сохранён в {os.path.basename(DISCORD_WEBHOOK_FILE)}")
-        return webhook_url
-
-    print()
-    print("=" * 60)
-    print("Первый запуск: настройка Discord")
-    print("Вставьте URL Discord Webhook.")
-    print("Он будет сохранён в отдельный файл discord_webhook.json.")
-    print("=" * 60)
-
-    while True:
-        try:
-            webhook_url = input("DISCORD_WEBHOOK_URL: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\n[DISCORD] Настройка отменена.")
-            return None
-
-        if webhook_url:
-            save_json(DISCORD_WEBHOOK_FILE, {"webhook_url": webhook_url})
-            print(f"[DISCORD] Webhook сохранён в {os.path.basename(DISCORD_WEBHOOK_FILE)}")
-            return webhook_url
-
-        print("[DISCORD] URL не может быть пустым. Попробуйте ещё раз.")
-
-
 def ensure_directories():
     """Создаёт папки программы, если их ещё нет."""
     os.makedirs(ASSETS_DIR, exist_ok=True)
     os.makedirs(DIGITS_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(HISTORY_DIR, exist_ok=True)
     os.makedirs(UNKNOWN_DIR, exist_ok=True)
 
 
@@ -382,6 +342,7 @@ class ChestReader:
         # Не спрашивать название одного и того же предмета повторно
         # в течение текущего запуска программы.
         self.prompted_unknowns = set()
+        self.unknown_item_prompt = None
 
         self.print_startup_status()
 
@@ -402,26 +363,20 @@ class ChestReader:
                 except OSError:
                     pass
 
+    def play_scan_start_sound(self):
+        """Короткий сигнал в момент начала сканирования."""
+        try:
+            winsound.Beep(880, 120)
+        except Exception as error:
+            print(f"[ЗВУК] Не удалось воспроизвести стартовый сигнал: {error}")
+
     def play_success_sound(self):
-        """
-        Проигрывает звук после успешного сканирования.
-        Работает в Windows.
-        """
+        """Проигрывает звук после успешного сканирования."""
         try:
             winsound.Beep(880, 120)
             winsound.Beep(1175, 180)
         except Exception as error:
             print(f"[ЗВУК] Не удалось воспроизвести сигнал: {error}")
-
-    def play_scan_start_sound(self):
-        """
-        Короткий сигнал в момент начала реального сканирования.
-        Работает в Windows.
-        """
-        try:
-            winsound.Beep(700, 100)
-        except Exception as error:
-            print(f"[ЗВУК] Не удалось воспроизвести сигнал начала сканирования: {error}")
 
     def print_startup_status(self):
         print("\n===================================================")
@@ -1292,10 +1247,21 @@ class ChestReader:
         )
 
         try:
-            user_name = input(f"Название для {unknown_name}: ").strip()
+            if callable(self.unknown_item_prompt):
+                user_name = self.unknown_item_prompt(
+                    unknown_name,
+                    full_path
+                ) or ""
+            else:
+                user_name = input(
+                    f"Название для {unknown_name}: "
+                ).strip()
         except (EOFError, KeyboardInterrupt):
             print("\nВвод отменён. Будет использовано имя:")
             print(unknown_name)
+            user_name = ""
+        except Exception as error:
+            print(f"[ПРЕДМЕТ] Ошибка окна названия: {error}")
             user_name = ""
 
         # Если пользователь ничего не ввёл,
@@ -1341,6 +1307,8 @@ class ChestReader:
         save_json(RESULTS_FILE, data)
 
     def scan_chest(self, force=False):
+        # Сигнал подаётся именно в момент начала сканирования.
+        self.play_scan_start_sound()
         time.sleep(0.25)
 
         screen = screenshot_bgr()
@@ -1374,9 +1342,6 @@ class ChestReader:
             return None
 
         self.last_chest_hash = chest_hash
-
-        # Сигнализируем о фактическом начале распознавания сундука.
-        self.play_scan_start_sound()
 
         slots = self.get_slots(screen)
 
@@ -1426,7 +1391,7 @@ class ChestReader:
 
         chest_data = {
             "id": str(uuid.uuid4()),
-            "timestamp": datetime.now(ZoneInfo("Europe/Moscow")).isoformat(timespec="seconds"),
+            "timestamp": datetime.now(ZoneInfo("Europe/Moscow")).strftime("%d.%m.%Y %H:%M:%S"),
             "screen_resolution": [
                 screen.shape[1],
                 screen.shape[0]
@@ -1468,207 +1433,26 @@ class ChestReader:
         """12345 -> 12 345"""
         return f"{number:,}".replace(",", " ")
 
-    def get_item_image_path(self, item_name):
-        """Возвращает путь к иконке предмета из items.json."""
-        for item in self.items_db.get("items", []):
-            if item.get("name") != item_name:
-                continue
-
-            image_paths = item.get("images")
-            if not image_paths:
-                image_paths = [item.get("image")]
-
-            for image_path in image_paths:
-                if not image_path:
-                    continue
-
-                full_path = absolute_path(image_path)
-                if full_path and os.path.exists(full_path):
-                    return full_path
-
-        return None
-
-    @staticmethod
-    def load_font(size, bold=False):
-        """Загружает шрифт для таблицы с поддержкой кириллицы."""
-        candidates = []
-
-        if os.name == "nt":
-            candidates.extend([
-                r"C:\Windows\Fonts\arialbd.ttf" if bold else r"C:\Windows\Fonts\arial.ttf",
-                r"C:\Windows\Fonts\segoeuib.ttf" if bold else r"C:\Windows\Fonts\segoeui.ttf",
-            ])
-
-        candidates.extend([
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold
-            else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf" if bold
-            else "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-        ])
-
-        for path in candidates:
-            if os.path.exists(path):
-                try:
-                    return ImageFont.truetype(path, size=size)
-                except OSError:
-                    pass
-
-        return ImageFont.load_default()
-
-    def build_discord_items_images(self, sorted_items, stack_size, table_config):
-        """Создаёт несколько PNG-частей таблицы для Discord."""
-        icon_size = max(24, int(table_config.get("image_icon_size", 40)))
-        row_height = max(icon_size + 10, int(table_config.get("image_row_height", 52)))
-        padding = max(8, int(table_config.get("image_padding", 12)))
-        font_size = max(10, int(table_config.get("image_font_size", 18)))
-        header_font_size = max(10, int(table_config.get("image_header_font_size", 16)))
-
-        background = tuple(table_config.get("image_background", [32, 34, 37]))
-        header_background = tuple(table_config.get("image_header_background", [47, 49, 54]))
-        text_color = tuple(table_config.get("image_text_color", [255, 255, 255]))
-        muted_color = tuple(table_config.get("image_muted_color", [185, 187, 190]))
-        border_color = tuple(table_config.get("image_border_color", [79, 84, 92]))
-
-        icon_column = max(70, int(table_config.get("image_icon_column", 70)))
-        name_column = max(220, int(table_config.get("image_name_column", 430)))
-        total_column = max(110, int(table_config.get("image_total_column", 140)))
-        stacks_column = max(100, int(table_config.get("image_stacks_column", 120)))
-        rows_per_part = max(1, int(table_config.get("image_rows_per_part", 20)))
-
-        width = padding * 2 + icon_column + name_column + total_column + stacks_column
-        header_height = max(row_height, 48)
-        image_paths = []
-
-        for part_index, start_index in enumerate(
-            range(0, len(sorted_items), rows_per_part), start=1
-        ):
-            part_items = sorted_items[start_index:start_index + rows_per_part]
-            height = padding * 2 + header_height + row_height * len(part_items)
-            image = Image.new("RGB", (width, height), background)
-            draw = ImageDraw.Draw(image)
-
-            font = self.load_font(font_size)
-            header_font = self.load_font(header_font_size, bold=True)
-
-            draw.rectangle(
-                [padding, padding, width - padding, padding + header_height],
-                fill=header_background
-            )
-
-            x_icon = padding
-            x_name = x_icon + icon_column
-            x_total = x_name + name_column
-            x_stacks = x_total + total_column
-
-            header_y = padding + (header_height - header_font_size) // 2 - 2
-            draw.text((x_icon + 10, header_y), "Иконка", font=header_font, fill=text_color)
-            draw.text((x_name + 10, header_y), "Название", font=header_font, fill=text_color)
-            draw.text((x_total + 10, header_y), "Всего", font=header_font, fill=text_color)
-            draw.text((x_stacks + 10, header_y), "Стаков", font=header_font, fill=text_color)
-
-            draw.line(
-                [padding, padding + header_height, width - padding, padding + header_height],
-                fill=border_color,
-                width=1
-            )
-
-            for index, (item_name, quantity) in enumerate(part_items):
-                y1 = padding + header_height + index * row_height
-                y2 = y1 + row_height
-
-                if index % 2 == 1:
-                    row_bg = tuple(min(255, value + 5) for value in background)
-                    draw.rectangle([padding, y1, width - padding, y2], fill=row_bg)
-
-                for x in (x_name, x_total, x_stacks):
-                    draw.line([x, y1, x, y2], fill=border_color, width=1)
-
-                icon_path = self.get_item_image_path(item_name)
-                if icon_path:
-                    try:
-                        icon = Image.open(icon_path).convert("RGBA")
-                        icon.thumbnail((icon_size, icon_size), Image.Resampling.LANCZOS)
-                        icon_x = x_icon + (icon_column - icon.width) // 2
-                        icon_y = y1 + (row_height - icon.height) // 2
-                        image.paste(icon, (icon_x, icon_y), icon)
-                    except (OSError, ValueError):
-                        draw.text(
-                            (x_icon + 20, y1 + (row_height - font_size) // 2 - 2),
-                            "?", font=font, fill=muted_color
-                        )
-                else:
-                    draw.text(
-                        (x_icon + 20, y1 + (row_height - font_size) // 2 - 2),
-                        "?", font=font, fill=muted_color
-                    )
-
-                if stack_size and quantity < stack_size:
-                    stacks_text = ""
-                else:
-                    stacks = quantity / stack_size if stack_size else quantity
-                    if stacks == int(stacks):
-                        stacks_text = str(int(stacks))
-                    else:
-                        stacks_text = f"{stacks:.2f}".rstrip("0").rstrip(".")
-
-                name = str(item_name)
-                max_name_width = name_column - 20
-                while name and draw.textbbox((0, 0), name, font=font)[2] > max_name_width:
-                    name = name[:-2] + "…"
-
-                text_y = y1 + (row_height - font_size) // 2 - 3
-                draw.text((x_name + 10, text_y), name, font=font, fill=text_color)
-
-                total_text = self.format_number(quantity)
-                total_bbox = draw.textbbox((0, 0), total_text, font=font)
-                draw.text(
-                    (x_total + total_column - 10 - (total_bbox[2] - total_bbox[0]), text_y),
-                    total_text, font=font, fill=text_color
-                )
-
-                stacks_bbox = draw.textbbox((0, 0), stacks_text, font=font)
-                draw.text(
-                    (x_stacks + stacks_column - 10 - (stacks_bbox[2] - stacks_bbox[0]), text_y),
-                    stacks_text, font=font, fill=text_color
-                )
-
-                draw.line([padding, y2, width - padding, y2], fill=border_color, width=1)
-
-            image_path = f"{DISCORD_TABLE_IMAGE_PREFIX}_{part_index}.png"
-            image.save(image_path, "PNG", optimize=True)
-            image_paths.append(image_path)
-
-        return image_paths
-
     def build_discord_message(self, chests):
-        """
-        Формирует сообщение Discord с аккуратно выровненной таблицей.
-
-        В текстовой версии остаётся таблица для поиска Discord.
-        Дополнительно send_all_chests_to_discord() прикрепляет PNG
-        с настоящими иконками каждого предмета.
-        """
+        """Формирует текстовый отчёт Discord без эмодзи в таблице."""
         if not chests:
             return (
-                "📦 **База сундуков пуста**\n"
+                "**База сундуков пуста**\n"
                 "Сначала откройте сундук и нажмите `F8`."
             )
 
         discord_config = self.config.get("discord_message", {})
-
         global_totals = {}
         all_unknown_items = set()
 
         for chest in chests:
             for item_name, quantity in chest.get("totals", {}).items():
                 global_totals[item_name] = global_totals.get(item_name, 0) + quantity
-
             for unknown_item in chest.get("unknown_items", []):
                 all_unknown_items.add(unknown_item)
 
         last_timestamp = chests[-1].get("timestamp", "неизвестно")
         stack_size = discord_config.get("stack_size", 64)
-
         table_config = discord_config.get("table", {})
         name_width = int(table_config.get("name_width", 30))
         total_width = int(table_config.get("total_width", 12))
@@ -1679,9 +1463,7 @@ class ChestReader:
         def fit(text, width, align="left"):
             text = str(text)
             if len(text) > width:
-                if width <= 1:
-                    return text[:width]
-                text = text[:width - 1] + "…"
+                text = text[:max(1, width - 1)] + "…"
             return text.rjust(width) if align == "right" else text.ljust(width)
 
         def table_line(name, total, stacks):
@@ -1698,282 +1480,658 @@ class ChestReader:
             f"{header_border * stacks_width}"
         )
 
-        sorted_items = sorted(
-            global_totals.items(), key=lambda item: item[0].lower()
-        )
-
         item_lines = []
-        for item_name, quantity in sorted_items:
+        for item_name, quantity in sorted(global_totals.items(), key=lambda item: item[0].lower()):
             if stack_size and quantity < stack_size:
                 stacks_text = ""
             else:
                 stacks = quantity / stack_size if stack_size else quantity
-                if stacks == int(stacks):
-                    stacks_text = str(int(stacks))
-                else:
-                    stacks_text = f"{stacks:.2f}".rstrip("0").rstrip(".")
+                stacks_text = str(int(stacks)) if stacks == int(stacks) else f"{stacks:.2f}".rstrip("0").rstrip(".")
+            item_lines.append(table_line(item_name, self.format_number(quantity), stacks_text))
 
-            item_lines.append(
-                table_line(
-                    item_name,
-                    self.format_number(quantity),
-                    stacks_text
-                )
-            )
-
-        table = "\n".join([columns, separator] + item_lines)
-        items_text = f"```text\n{table}\n```"
-
-        unknown_template = discord_config.get("unknown_item", "• {name}")
-        unknowns_text = discord_config.get("item_separator", "\n").join(
-            unknown_template.format(name=name)
-            for name in sorted(all_unknown_items)
-        )
-
-        values = {
-            "chests": len(chests),
-            "last_scan": last_timestamp,
-            "items": items_text,
-            "unknowns": unknowns_text,
-        }
+        items_text = "```text\n" + "\n".join([columns, separator] + item_lines) + "\n```"
+        values = {"chests": len(chests), "last_scan": last_timestamp, "items": items_text, "unknowns": "\n".join(sorted(all_unknown_items))}
 
         header = discord_config.get("header", "")
-        scanned_chests = discord_config.get(
-            "scanned_chests", "Отсканировано сундуков: {chests}"
-        ).format(**values)
-        last_scan = discord_config.get(
-            "last_scan", "Время последнего сканирования: {last_scan}"
-        ).format(**values)
+        scanned_chests = discord_config.get("scanned_chests", "Отсканировано сундуков: {chests}").format(**values)
+        last_scan = discord_config.get("last_scan", "Время последнего сканирования: {last_scan}").format(**values)
         items_title = discord_config.get("items_title", "══════════Предметы══════════")
 
         lines = []
         if header:
             lines.extend([header, ""])
-
-        lines.extend([
-            scanned_chests,
-            last_scan,
-            "",
-            items_title,
-            "",
-            items_text
-        ])
+        lines.extend([scanned_chests, last_scan, "", items_title, "", items_text])
 
         if all_unknown_items:
-            unknown_title = discord_config.get(
-                "unknown_title", "══════════Неизвестные предметы══════════"
-            )
+            unknown_title = discord_config.get("unknown_title", "══════════Неизвестные предметы══════════")
+            unknown_template = discord_config.get("unknown_item", "• {name}")
+            unknowns_text = discord_config.get("item_separator", "\n").join(unknown_template.format(name=name) for name in sorted(all_unknown_items))
             lines.extend(["", unknown_title, "", unknowns_text])
 
         return "\n".join(lines)
 
 
-    def delete_old_discord_messages(self, webhook_url):
-        """Удаляет предыдущие сообщения, отправленные этим webhook."""
-        if not self.config.get("discord_delete_old_messages", True):
-            return
-
-        data = load_json(DISCORD_MESSAGE_IDS_FILE, {"message_ids": []})
-        message_ids = data.get("message_ids", [])
-
-        if not message_ids:
-            return
-
-        deleted = 0
-        failed = 0
-
-        for message_id in message_ids:
-            try:
-                response = requests.delete(
-                    f"{webhook_url}/messages/{message_id}",
-                    timeout=15
-                )
-
-                if response.status_code in (200, 204, 404):
-                    # 404 означает, что сообщение уже удалено — это нормально.
-                    deleted += 1
-                else:
-                    failed += 1
-                    print(
-                        f"[DISCORD] Не удалось удалить старое сообщение "
-                        f"{message_id}: {response.status_code} {response.text}"
-                    )
-
-            except requests.RequestException as error:
-                failed += 1
-                print(
-                    f"[DISCORD] Ошибка удаления сообщения "
-                    f"{message_id}: {error}"
-                )
-
-        # Не оставляем удалённые ID в истории.
-        save_json(DISCORD_MESSAGE_IDS_FILE, {"message_ids": []})
-
-        print(
-            f"[DISCORD] Старые сообщения: удалено {deleted}"
-            + (f", ошибок {failed}" if failed else "")
-        )
-
-    @staticmethod
-    def save_discord_message_ids(message_ids):
-        """Сохраняет ID сообщений, отправленных текущим отчётом."""
-        save_json(
-            DISCORD_MESSAGE_IDS_FILE,
-            {"message_ids": [str(message_id) for message_id in message_ids]}
-        )
-
-    def send_all_chests_to_discord(self):
+    def get_discord_webhook_url(self):
         """
-        Отправляет отчёт в Discord несколькими сообщениями,
-        если он превышает лимит 2000 символов.
-        JSON-файл в Discord не отправляется.
+        Получает Discord Webhook.
+        Приоритет:
+        1. discord_webhook.json
+        2. переменная окружения из config.json
         """
         env_name = self.config.get(
             "discord_webhook_env",
             "DISCORD_WEBHOOK_URL"
         )
 
-        webhook_url = get_discord_webhook_url(env_name)
-
-        if not webhook_url:
-            return
-
-        if not os.path.exists(RESULTS_FILE):
-            print(
-                "[DISCORD] Файл chests.json не найден. "
-                "Сначала выполните сканирование."
-            )
-            return
-
-        data = load_json(
-            RESULTS_FILE,
-            {"chests": []}
+        webhook_file = os.path.join(
+            BASE_DIR,
+            "discord_webhook.json"
         )
 
-        chests = data.get("chests", [])
+        # Основной способ: отдельный JSON-файл,
+        # который создаётся Запуск.vbs.
+        if os.path.exists(webhook_file):
+            try:
+                data = load_json(webhook_file, {})
 
+                if isinstance(data, dict):
+                    webhook_url = (
+                        data.get("webhook_url")
+                        or data.get(env_name)
+                        or data.get("DISCORD_WEBHOOK_URL")
+                    )
+
+                    if isinstance(webhook_url, str):
+                        webhook_url = webhook_url.strip()
+
+                        if webhook_url:
+                            return webhook_url
+
+            except Exception as error:
+                print(
+                    f"[DISCORD] Ошибка чтения webhook-файла: {error}"
+                )
+
+        # Запасной вариант: переменная окружения.
+        webhook_url = os.getenv(env_name, "").strip()
+
+        if webhook_url:
+            return webhook_url
+
+        return None
+
+    @staticmethod
+    def load_discord_message_ids():
+        """Возвращает ID сообщений последнего отчёта."""
+        data = load_json(DISCORD_MESSAGE_IDS_FILE, {"message_ids": []})
+        ids = data.get("message_ids", []) if isinstance(data, dict) else []
+        return [str(message_id) for message_id in ids if message_id]
+
+    @staticmethod
+    def save_discord_message_ids(message_ids):
+        """Сохраняет ID сообщений текущего отчёта."""
+        save_json(
+            DISCORD_MESSAGE_IDS_FILE,
+            {"message_ids": [str(message_id) for message_id in message_ids]}
+        )
+
+    @staticmethod
+    def _discord_response_error(response):
+        try:
+            body = response.json()
+            if isinstance(body, dict):
+                message = body.get("message")
+                if message:
+                    return str(message)
+        except ValueError:
+            pass
+        return response.text[:500]
+
+    def _create_discord_message(self, webhook_url, content):
+        """Создаёт обычное текстовое сообщение Discord."""
+        try:
+            payload = {
+                "content": content,
+                "username": "Chest Scanner"
+            }
+            response = requests.post(
+                webhook_url,
+                params={"wait": "true"},
+                json=payload,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                return None, (
+                    f"Discord HTTP {response.status_code}: "
+                    f"{self._discord_response_error(response)}"
+                )
+
+            try:
+                response_data = response.json()
+                message_id = response_data.get("id")
+            except ValueError:
+                message_id = None
+
+            if not message_id:
+                return None, "Discord не вернул ID созданного сообщения."
+
+            return str(message_id), None
+        except requests.RequestException as error:
+            return None, f"Ошибка сети: {error}"
+
+    def _edit_discord_message(self, webhook_url, message_id, content):
+        """Редактирует существующее текстовое сообщение Discord."""
+        try:
+            payload = {
+                "content": content,
+                "username": "Chest Scanner"
+            }
+            response = requests.patch(
+                f"{webhook_url}/messages/{message_id}",
+                json=payload,
+                timeout=30
+            )
+
+            if response.status_code == 404:
+                return False, "not_found"
+
+            if response.status_code != 200:
+                return False, (
+                    f"Discord HTTP {response.status_code}: "
+                    f"{self._discord_response_error(response)}"
+                )
+
+            return True, None
+        except requests.RequestException as error:
+            return False, f"Ошибка сети: {error}"
+
+    def _delete_discord_message(self, webhook_url, message_id):
+        """Удаляет только лишнее старое сообщение отчёта."""
+        try:
+            response = requests.delete(
+                f"{webhook_url}/messages/{message_id}",
+                timeout=15
+            )
+            if response.status_code in (200, 204, 404):
+                return True, None
+            return False, (
+                f"Discord HTTP {response.status_code}: "
+                f"{self._discord_response_error(response)}"
+            )
+        except requests.RequestException as error:
+            return False, f"Ошибка сети: {error}"
+
+    def archive_report_after_discord(self):
+        """Переносит успешно отправленный отчёт в историю и очищает текущий файл."""
+        data = load_json(RESULTS_FILE, {"chests": []})
+        chests = data.get("chests", []) if isinstance(data, dict) else []
         if not chests:
-            print("[DISCORD] Нет сохранённых сканирований.")
-            return
+            return None
 
-        # Перед новым отчётом удаляем предыдущие сообщения этого webhook.
-        self.delete_old_discord_messages(webhook_url)
+        timestamp = datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d_%H-%M-%S")
+        history_path = os.path.join(HISTORY_DIR, f"report_{timestamp}.json")
+        counter = 2
+        while os.path.exists(history_path):
+            history_path = os.path.join(
+                HISTORY_DIR, f"report_{timestamp}_{counter}.json"
+            )
+            counter += 1
+
+        save_json(history_path, data)
+        save_json(RESULTS_FILE, {"chests": []})
+        return history_path
+
+    def send_all_chests_to_discord(self):
+        """Синхронизирует текстовый отчёт в Discord и архивирует его после успеха."""
+        webhook_url = self.get_discord_webhook_url()
+        if not webhook_url:
+            return False, "Discord Webhook не найден."
+        if not webhook_url.startswith((
+            "https://discord.com/api/webhooks/",
+            "https://discordapp.com/api/webhooks/"
+        )):
+            return False, "Некорректный URL Discord Webhook."
+        if not os.path.exists(RESULTS_FILE):
+            return False, "Файл chests.json не найден."
+
+        data = load_json(RESULTS_FILE, {"chests": []})
+        chests = data.get("chests", []) if isinstance(data, dict) else []
+        if not chests:
+            return False, "Нет сохранённых сканирований."
 
         full_message = self.build_discord_message(chests)
-
-        # Создаём отдельную PNG-таблицу с реальными иконками предметов.
-        discord_config = self.config.get("discord_message", {})
-        table_config = discord_config.get("table", {})
-        global_totals = {}
-        for chest in chests:
-            for item_name, quantity in chest.get("totals", {}).items():
-                global_totals[item_name] = global_totals.get(item_name, 0) + quantity
-
-        sorted_items = sorted(
-            global_totals.items(), key=lambda item: item[0].lower()
-        )
-        table_image_paths = []
-        if sorted_items:
-            try:
-                table_config = dict(table_config)
-                table_config.setdefault(
-                    "image_rows_per_part",
-                    self.config.get("discord_image_rows_per_part", 20)
-                )
-                table_image_paths = self.build_discord_items_images(
-                    sorted_items,
-                    discord_config.get("stack_size", 64),
-                    table_config
-                )
-            except Exception as error:
-                print(f"[DISCORD] Не удалось создать таблицы с иконками: {error}")
-
-        # В Discord максимум 2000 символов.
-        # Используем 1900, чтобы оставить запас.
-        message_parts = split_discord_message(
-            full_message,
-            limit=1900
-        )
-
-        if not message_parts:
-            message_parts = [
-                "📦 Отчёт пуст."
-            ]
-
+        message_parts = split_discord_message(full_message, limit=1900) or ["Отчёт пуст."]
         total_parts = len(message_parts)
 
+        contents = []
+        for index, part in enumerate(message_parts):
+            if index == 0:
+                content = part
+            else:
+                prefix = f"**Продолжение отчёта ({index + 1}/{total_parts})**\n\n"
+                content = (prefix + part)[:1900]
+            contents.append(content)
+
+        old_ids = self.load_discord_message_ids()
+        new_ids = []
+        edited = 0
+        created = 0
+        deleted = 0
+
         try:
-            sent_message_ids = []
-
-            # Объединяем части текстового отчёта с частями PNG-таблицы:
-            # одно сообщение Discord = текстовая часть + соответствующая картинка.
-            paired_count = max(len(message_parts), len(table_image_paths), 1)
-
-            for index in range(paired_count):
-                if index == 0:
-                    content = message_parts[0] if message_parts else "📦 Отчёт пуст."
-                else:
-                    header = (
-                        f"📦 **Продолжение отчёта "
-                        f"({index + 1}/{len(message_parts)})**\n\n"
-                    )
-                    part = message_parts[index] if index < len(message_parts) else ""
-                    available_length = 1900 - len(header)
-                    content = header + part[:max(1, available_length)]
-
-                content = content[:1900]
-
-                image_file = None
-                try:
-                    files = {}
-                    if index < len(table_image_paths) and os.path.exists(table_image_paths[index]):
-                        image_file = open(table_image_paths[index], "rb")
-                        files["table_image"] = (
-                            os.path.basename(table_image_paths[index]),
-                            image_file,
-                            "image/png"
-                        )
-
-                    response = requests.post(
+            for index, content in enumerate(contents):
+                if index < len(old_ids):
+                    message_id = old_ids[index]
+                    ok, error = self._edit_discord_message(
                         webhook_url,
-                        params={"wait": "true"},
-                        data={
-                            "content": content,
-                            "username": "Chest Scanner"
-                        },
-                        files=files if files else None,
-                        timeout=30
+                        message_id,
+                        content
                     )
-                finally:
-                    if image_file is not None:
-                        image_file.close()
 
-                if response.status_code not in (200, 204):
-                    print(
-                        f"[DISCORD] Ошибка сообщения {index + 1}/{paired_count} "
-                        f"{response.status_code}: {response.text}"
+                    if ok:
+                        new_ids.append(message_id)
+                        edited += 1
+                    elif error == "not_found":
+                        created_id, create_error = self._create_discord_message(
+                            webhook_url,
+                            content
+                        )
+                        if not created_id:
+                            return False, f"Не удалось восстановить сообщение: {create_error}"
+                        new_ids.append(created_id)
+                        created += 1
+                    else:
+                        return False, f"Не удалось отредактировать сообщение {message_id}: {error}"
+                else:
+                    message_id, error = self._create_discord_message(
+                        webhook_url,
+                        content
                     )
-                    return
+                    if not message_id:
+                        return False, f"Не удалось создать сообщение: {error}"
+                    new_ids.append(message_id)
+                    created += 1
 
-                try:
-                    message_data = response.json()
-                    message_id = message_data.get("id")
-                    if message_id:
-                        sent_message_ids.append(message_id)
-                except (ValueError, AttributeError):
-                    pass
+                time.sleep(0.5)
 
-                time.sleep(0.7)
+            # Если новый отчёт короче старого — удаляем только хвост.
+            for message_id in old_ids[total_parts:]:
+                ok, error = self._delete_discord_message(webhook_url, message_id)
+                if ok:
+                    deleted += 1
+                else:
+                    return False, f"Не удалось удалить лишнее сообщение {message_id}: {error}"
+                time.sleep(0.3)
 
-            self.save_discord_message_ids(sent_message_ids)
+            self.save_discord_message_ids(new_ids)
 
-            print(
-                f"[DISCORD] Отчёт отправлен: {len(sent_message_ids)} сообщений, "
-                f"{len(table_image_paths)} таблиц."
+            history_path = self.archive_report_after_discord()
+            if history_path:
+                history_name = os.path.basename(history_path)
+                return True, (
+                    f"Discord обновлён: изменено {edited}, создано {created}, "
+                    f"удалено лишних {deleted}. Отчёт сохранён в истории: {history_name}. "
+                    "Текущий chests.json очищен."
+                )
+
+            return True, (
+                f"Discord обновлён: изменено {edited}, создано {created}, "
+                f"удалено лишних {deleted}."
             )
 
         except requests.RequestException as error:
-            print(f"[DISCORD] Ошибка сети Discord: {error}")
+            error_text = f"Ошибка сети: {error}"
+            print(f"[DISCORD] {error_text}")
+            return False, error_text
+        except Exception as error:
+            error_text = f"Неожиданная ошибка: {error}"
+            print(f"[DISCORD] {error_text}")
+            return False, error_text
+
+
+# ============================================================
+# ГРАФИЧЕСКИЙ ИНТЕРФЕЙС
+# ============================================================
+
+class ScannerGUI:
+    """Современное тёмное окно управления сканером."""
+
+    BG = "#101318"
+    PANEL = "#171b22"
+    PANEL_2 = "#1d232c"
+    BORDER = "#2a313c"
+    TEXT = "#f2f4f7"
+    MUTED = "#8f9aaa"
+    ACCENT = "#5865f2"
+    ACCENT_HOVER = "#6975ff"
+    GREEN = "#35c98b"
+    RED = "#f25f67"
+    YELLOW = "#f0b84b"
+
+    def __init__(self, reader):
+        self.reader = reader
+        self.root = tk.Tk()
+        self.root.title("Chest Scanner")
+        self.root.geometry("980x680")
+        self.root.minsize(860, 600)
+        self.root.configure(bg=self.BG)
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
+
+        self.log_queue = Queue()
+        self.busy = False
+        self.running = True
+
+        self.reader.unknown_item_prompt = self._prompt_unknown_item
+
+        self._setup_style()
+        self._build_ui()
+        self._refresh_stats()
+        self._poll_logs()
+        self._keyboard_loop()
+
+    def _setup_style(self):
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure(
+            "Treeview",
+            background=self.PANEL,
+            fieldbackground=self.PANEL,
+            foreground=self.TEXT,
+            rowheight=30,
+            borderwidth=0,
+            font=("Segoe UI", 10),
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=self.PANEL_2,
+            foreground=self.MUTED,
+            relief="flat",
+            font=("Segoe UI", 9, "bold"),
+        )
+        style.map("Treeview", background=[("selected", "#29304a")])
+
+    def _button(self, parent, text, command, accent=False):
+        bg = self.ACCENT if accent else self.PANEL_2
+        active = self.ACCENT_HOVER if accent else "#252c36"
+        button = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=bg,
+            fg=self.TEXT,
+            activebackground=active,
+            activeforeground=self.TEXT,
+            relief="flat",
+            bd=0,
+            padx=18,
+            pady=11,
+            cursor="hand2",
+            font=("Segoe UI", 10, "bold"),
+        )
+        button.bind("<Enter>", lambda e: button.configure(bg=active))
+        button.bind("<Leave>", lambda e: button.configure(bg=bg))
+        return button
+
+    def _card(self, parent, title, value, color=None):
+        frame = tk.Frame(parent, bg=self.PANEL, highlightbackground=self.BORDER, highlightthickness=1)
+        tk.Label(frame, text=title.upper(), bg=self.PANEL, fg=self.MUTED,
+                 font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=16, pady=(13, 2))
+        label = tk.Label(frame, text=value, bg=self.PANEL, fg=color or self.TEXT,
+                         font=("Segoe UI", 22, "bold"))
+        label.pack(anchor="w", padx=16, pady=(0, 13))
+        return frame, label
+
+    def _build_ui(self):
+        # Header
+        header = tk.Frame(self.root, bg=self.BG)
+        header.pack(fill="x", padx=28, pady=(24, 14))
+
+        left = tk.Frame(header, bg=self.BG)
+        left.pack(side="left")
+        tk.Label(left, text="Chest Scanner", bg=self.BG, fg=self.TEXT,
+                 font=("Segoe UI", 24, "bold")).pack(anchor="w")
+        tk.Label(left, text="Распознавание сундуков Minecraft", bg=self.BG, fg=self.MUTED,
+                 font=("Segoe UI", 10)).pack(anchor="w", pady=(2, 0))
+
+        self.status_dot = tk.Label(header, text="●  ГОТОВ", bg=self.BG, fg=self.GREEN,
+                                   font=("Segoe UI", 10, "bold"))
+        self.status_dot.pack(side="right", pady=10)
+
+        # Main buttons
+        actions = tk.Frame(self.root, bg=self.BG)
+        actions.pack(fill="x", padx=28, pady=(0, 18))
+        self._button(actions, "Сканировать", lambda: self._run("Сканирование", self._scan), True).pack(side="left", padx=(0, 8))
+        self._button(actions, "Discord", lambda: self._run("Отправка в Discord", self._discord)).pack(side="left", padx=4)
+        self._button(actions, "Сетка F7", lambda: self._run("Отладка сетки", self.reader.show_grid_debug)).pack(side="left", padx=4)
+        self._button(actions, "Цифры F6", lambda: self._run("Отладка цифр", self.reader.save_quantity_debug)).pack(side="left", padx=4)
+        self._button(actions, "Выход", self.close).pack(side="right")
+
+        # Stats
+        stats = tk.Frame(self.root, bg=self.BG)
+        stats.pack(fill="x", padx=28, pady=(0, 18))
+        for i in range(4):
+            stats.grid_columnconfigure(i, weight=1)
+        self.cards = {}
+        for i, (key, title, value, color) in enumerate([
+            ("chests", "Сундуков", "0", None),
+            ("items", "Предметов", "0", None),
+            ("unique", "Уникальных", "0", self.ACCENT_HOVER),
+            ("unknown", "Неизвестных", "0", self.YELLOW),
+        ]):
+            card, label = self._card(stats, title, value, color)
+            card.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 6, 6 if i < 3 else 0))
+            self.cards[key] = label
+
+        # Content split
+        content = tk.Frame(self.root, bg=self.BG)
+        content.pack(fill="both", expand=True, padx=28, pady=(0, 18))
+
+        log_panel = tk.Frame(content, bg=self.PANEL, highlightbackground=self.BORDER, highlightthickness=1)
+        log_panel.pack(fill="both", expand=True)
+        tk.Label(log_panel, text="ЖУРНАЛ", bg=self.PANEL, fg=self.MUTED,
+                 font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=(14, 8))
+
+        self.log = tk.Text(log_panel, bg=self.PANEL, fg="#cbd2dc", insertbackground=self.TEXT,
+                           relief="flat", bd=0, wrap="word", font=("Consolas", 9), padx=16, pady=4)
+        self.log.pack(fill="both", expand=True, side="left")
+        scroll = tk.Scrollbar(log_panel, command=self.log.yview)
+        scroll.pack(side="right", fill="y", padx=(0, 6), pady=(0, 8))
+        self.log.configure(yscrollcommand=scroll.set)
+
+        footer = tk.Frame(self.root, bg=self.BG)
+        footer.pack(fill="x", padx=28, pady=(0, 18))
+        tk.Label(footer, text="F6  цифры    F7  сетка    F8  сканировать    F9  Discord    F10  выход",
+                 bg=self.BG, fg=self.MUTED, font=("Segoe UI", 9)).pack(side="left")
+        self.last_scan_label = tk.Label(footer, text="Последнее действие: —", bg=self.BG, fg=self.MUTED,
+                                        font=("Segoe UI", 9))
+        self.last_scan_label.pack(side="right")
+
+        self._log("Интерфейс запущен.")
+        self._log("Горячие клавиши F6–F10 активны.")
+
+    def _prompt_unknown_item(self, unknown_name, image_path):
+        """Показывает окно для названия нового предмета из GUI."""
+        result = {"name": ""}
+        done = threading.Event()
+
+        def show_dialog():
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Новый предмет")
+            dialog.geometry("520x230")
+            dialog.resizable(False, False)
+            dialog.configure(bg=self.BG)
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            tk.Label(
+                dialog, text="Найден новый предмет", bg=self.BG, fg=self.TEXT,
+                font=("Segoe UI", 17, "bold")
+            ).pack(anchor="w", padx=24, pady=(22, 4))
+            tk.Label(
+                dialog, text=f"Шаблон: {unknown_name}", bg=self.BG, fg=self.MUTED,
+                font=("Segoe UI", 9)
+            ).pack(anchor="w", padx=24)
+            tk.Label(
+                dialog, text="Введите название предмета:", bg=self.BG, fg=self.TEXT,
+                font=("Segoe UI", 10)
+            ).pack(anchor="w", padx=24, pady=(18, 6))
+
+            entry = tk.Entry(
+                dialog, bg=self.PANEL_2, fg=self.TEXT, insertbackground=self.TEXT,
+                relief="flat", font=("Segoe UI", 11)
+            )
+            entry.pack(fill="x", padx=24, ipady=8)
+            entry.focus_set()
+
+            buttons = tk.Frame(dialog, bg=self.BG)
+            buttons.pack(fill="x", padx=24, pady=18)
+
+            def finish():
+                result["name"] = entry.get().strip()
+                try:
+                    dialog.grab_release()
+                except tk.TclError:
+                    pass
+                dialog.destroy()
+                done.set()
+
+            tk.Button(
+                buttons, text="Сохранить", command=finish, bg=self.ACCENT, fg=self.TEXT,
+                activebackground=self.ACCENT_HOVER, activeforeground=self.TEXT,
+                relief="flat", bd=0, padx=18, pady=8, font=("Segoe UI", 10, "bold")
+            ).pack(side="right")
+            tk.Button(
+                buttons, text="Оставить unknown", command=finish, bg=self.PANEL_2, fg=self.TEXT,
+                activebackground=self.BORDER, activeforeground=self.TEXT,
+                relief="flat", bd=0, padx=14, pady=8, font=("Segoe UI", 9)
+            ).pack(side="right", padx=(0, 8))
+
+            dialog.bind("<Return>", lambda _event: finish())
+            dialog.bind("<Escape>", lambda _event: finish())
+            dialog.protocol("WM_DELETE_WINDOW", finish)
+
+        self.root.after(0, show_dialog)
+        done.wait()
+        return result["name"]
+
+    def _scan(self):
+        result = self.reader.scan_chest(force=True)
+        if result is not None:
+            self._log("✓ Сундук успешно отсканирован.", self.GREEN)
+        else:
+            self._log("Сундук не найден или изменений нет.", self.MUTED)
+        self._refresh_stats()
+
+    def _discord(self):
+        success, message = self.reader.send_all_chests_to_discord()
+
+        if success:
+            self._log(f"✓ {message}", self.GREEN)
+        else:
+            self._log(f"✗ Discord: {message}", self.RED)
+            messagebox.showerror(
+                "Ошибка Discord",
+                message
+            )
+
+        self._refresh_stats()
+
+    def _run(self, title, func):
+        if self.busy:
+            self._log("Подождите: предыдущая операция ещё выполняется.", self.YELLOW)
+            return
+
+        def worker():
+            self.busy = True
+            self.root.after(0, lambda: self.status_dot.configure(text="●  РАБОТАЕТ", fg=self.YELLOW))
+            self._log(f"▶ {title}...")
+            try:
+                func()
+                self._log(f"✓ {title}: готово.", self.GREEN)
+            except Exception as error:
+                self._log(f"✕ {title}: {type(error).__name__}: {error}", self.RED)
+            finally:
+                self.busy = False
+                self.root.after(0, lambda: self.status_dot.configure(text="●  ГОТОВ", fg=self.GREEN))
+                self.root.after(0, self._refresh_stats)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _keyboard_loop(self):
+        if not self.running:
+            return
+        try:
+            if keyboard.is_pressed("f6"):
+                self._run("Отладка цифр", self.reader.save_quantity_debug)
+                time.sleep(0.35)
+            elif keyboard.is_pressed("f7"):
+                self._run("Отладка сетки", self.reader.show_grid_debug)
+                time.sleep(0.35)
+            elif keyboard.is_pressed("f8"):
+                self._run("Сканирование", self._scan)
+                time.sleep(0.35)
+            elif keyboard.is_pressed("f9"):
+                self._run("Отправка в Discord", self._discord)
+                time.sleep(0.35)
+            elif keyboard.is_pressed("f10"):
+                self.close()
+                return
+        except Exception as error:
+            self._log(f"Ошибка горячей клавиши: {error}", self.RED)
+        self.root.after(80, self._keyboard_loop)
+
+    def _refresh_stats(self):
+        try:
+            data = load_json(RESULTS_FILE, {"chests": []})
+            chests = data.get("chests", []) if isinstance(data, dict) else []
+            totals = {}
+            unknown = set()
+            for chest in chests:
+                for name, qty in (chest.get("totals", {}) or {}).items():
+                    totals[name] = totals.get(name, 0) + int(qty or 0)
+                unknown.update(chest.get("unknown_items", []) or [])
+            self.cards["chests"].configure(text=str(len(chests)))
+            self.cards["items"].configure(text=f"{sum(totals.values()):,}".replace(",", " "))
+            self.cards["unique"].configure(text=str(len(totals)))
+            self.cards["unknown"].configure(text=str(len(unknown)))
+        except Exception:
+            pass
+
+    def _log(self, message, color=None):
+        stamp = datetime.now(ZoneInfo("Europe/Moscow")).strftime("%H:%M:%S")
+        self.log_queue.put((f"[{stamp}] {message}", color))
+
+    def _poll_logs(self):
+        try:
+            while True:
+                message, color = self.log_queue.get_nowait()
+                self.log.insert("end", message + "\n")
+                if color:
+                    tag = f"c{abs(hash(color))}"
+                    self.log.tag_configure(tag, foreground=color)
+                    start = self.log.index("end-2l linestart")
+                    end = self.log.index("end-1l lineend")
+                    self.log.tag_add(tag, start, end)
+                self.log.see("end")
+                self.last_scan_label.configure(text=f"Последнее действие: {message[10:]}")
+        except Empty:
+            pass
+        if self.running:
+            self.root.after(100, self._poll_logs)
+
+    def close(self):
+        if not self.running:
+            return
+        self.running = False
+        self._log("Программа остановлена.")
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
+
+    def run(self):
+        self.root.mainloop()
 
 
 # ============================================================
@@ -1982,55 +2140,8 @@ class ChestReader:
 
 def main():
     reader = ChestReader()
-
-    print("Программа запущена.\n")
-    print("Горячие клавиши:")
-    print("  F6  — сохранить области распознавания цифр.")
-    print("  F7  — показать рамки ячеек.")
-    print("  F8  — принудительно считать сундук.")
-    print("  F9  — отправить результаты в Discord.")
-    print("  F10 — завершить программу.\n")
-
-    scan_interval = reader.config["scan_interval_seconds"]
-    last_scan_time = 0
-
-    while True:
-        try:
-            if keyboard.is_pressed("f10"):
-                print("Программа остановлена.")
-                break
-
-            if keyboard.is_pressed("f6"):
-                reader.save_quantity_debug()
-                time.sleep(0.5)
-
-            if keyboard.is_pressed("f7"):
-                reader.show_grid_debug()
-                time.sleep(0.5)
-
-            if keyboard.is_pressed("f8"):
-                reader.scan_chest(force=True)
-                time.sleep(0.5)
-
-            if keyboard.is_pressed("f9"):
-                reader.send_all_chests_to_discord()
-                time.sleep(0.5)
-
-#            current_time = time.time()
-#
-#            if current_time - last_scan_time >= scan_interval:
-#                reader.scan_chest(force=False)
-#                last_scan_time = current_time
-
-            time.sleep(0.1)
-
-        except KeyboardInterrupt:
-            print("\nПрограмма остановлена.")
-            break
-
-        except Exception as error:
-            print(f"\n[ОШИБКА] {type(error).__name__}: {error}")
-            time.sleep(2)
+    app = ScannerGUI(reader)
+    app.run()
 
 
 if __name__ == "__main__":

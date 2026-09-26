@@ -691,6 +691,14 @@
     {
       "name": "Диорит",
       "image": "unknown_items/unknown_3bfc91f39c.png"
+    },
+    {
+      "name": "Ящик моркови",
+      "image": "unknown_items/unknown_ec6272193a.png"
+    },
+    {
+      "name": "Солома",
+      "image": "unknown_items/unknown_468d76dd84.png"
     }
   ]
 }

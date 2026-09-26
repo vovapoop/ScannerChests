@@ -1,21 +1,216 @@
 import os
-import cv2
-import json
-import time
-import uuid
+import sys
+import subprocess
 import hashlib
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
-import keyboard
-import numpy as np
-import pyautogui
-import requests
 
-import winsound
-import threading
-import tkinter as tk
-from tkinter import ttk, messagebox
+# ============================================================
+# АВТОСОЗДАНИЕ И АВТОЗАПУСК ЧЕРЕЗ .venv
+#
+# При обычном запуске main.py программа сама:                 
+# 1) создаёт .venv при его отсутствии;                    
+# 2) устанавливает зависимости из requirements.txt;       
+# 3) перезапускает main.py уже из созданного окружения.    
+# ============================================================
+
+_BASE_DIR_FOR_VENV = os.path.dirname(os.path.abspath(__file__))
+_VENV_DIR = os.path.join(_BASE_DIR_FOR_VENV, ".venv")
+_REQUIREMENTS_FILE = os.path.join(_BASE_DIR_FOR_VENV, "requirements.txt")
+_REQUIREMENTS_HASH_FILE = os.path.join(_VENV_DIR, ".requirements.sha256")
+
+
+def _venv_python_paths():
+    if os.name == "nt":
+        return (
+            os.path.join(_VENV_DIR, "Scripts", "python.exe"),
+            os.path.join(_VENV_DIR, "Scripts", "pythonw.exe"),
+        )
+
+    python = os.path.join(_VENV_DIR, "bin", "python")
+    return python, python
+
+
+def _venv_is_active():
+    return os.path.abspath(sys.prefix) != os.path.abspath(sys.base_prefix)
+
+
+def _requirements_hash():
+    if not os.path.isfile(_REQUIREMENTS_FILE):
+        return None
+    digest = hashlib.sha256()
+    with open(_REQUIREMENTS_FILE, "rb") as requirements_file:
+        digest.update(requirements_file.read())
+    return digest.hexdigest()
+
+
+def _read_saved_requirements_hash():
+    try:
+        with open(_REQUIREMENTS_HASH_FILE, "r", encoding="utf-8") as hash_file:
+            return hash_file.read().strip()
+    except (OSError, UnicodeError):
+        return None
+
+
+def _write_saved_requirements_hash(value):
+    os.makedirs(_VENV_DIR, exist_ok=True)
+    with open(_REQUIREMENTS_HASH_FILE, "w", encoding="utf-8") as hash_file:
+        hash_file.write(value)
+
+
+def _run_setup_command(command):
+    run_kwargs = {
+        "cwd": _BASE_DIR_FOR_VENV,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.STDOUT,
+        "text": True,
+        "encoding": "utf-8",
+        "errors": "replace",
+    }
+
+    # Не показываем отдельное окно cmd.exe при создании .venv
+    # и установке зависимостей через python.exe на Windows.
+    if os.name == "nt":
+        run_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    result = subprocess.run(command, **run_kwargs)
+    if result.returncode != 0:
+        log_file = os.path.join(_BASE_DIR_FOR_VENV, "venv_setup.log")
+        try:
+            with open(log_file, "w", encoding="utf-8") as file:
+                file.write(result.stdout or "")
+        except OSError:
+            pass
+        raise RuntimeError(
+            "Не удалось подготовить .venv. "
+            f"Подробности записаны в: {log_file}"
+        )
+
+
+def _show_startup_error(error):
+    log_file = os.path.join(_BASE_DIR_FOR_VENV, "startup_error.log")
+    message = f"{type(error).__name__}: {error}"
+    try:
+        with open(log_file, "w", encoding="utf-8") as file:
+            file.write(message)
+    except OSError:
+        pass
+
+    if os.name == "nt":
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                message + f"\n\nПодробности: {log_file}",
+                "Minecraft Chest Scanner — ошибка запуска",
+                0x10,
+            )
+        except Exception:
+            pass
+
+
+def _ensure_venv_and_restart():
+    active = _venv_is_active()
+    venv_python, venv_pythonw = _venv_python_paths()
+
+    # Если программа уже запущена из .venv, ничего дополнительно
+    # не делаем. Установка зависимостей выполняется лаунчером
+    # Запуск.vbs до старта main.py.
+    if active:
+        return
+
+    setup_python = sys.executable
+    if os.name == "nt" and os.path.basename(setup_python).lower() == "pythonw.exe":
+        candidate = os.path.join(os.path.dirname(setup_python), "python.exe")
+        if os.path.isfile(candidate):
+            setup_python = candidate
+
+    if not os.path.isfile(venv_python):
+        _run_setup_command([setup_python, "-m", "venv", _VENV_DIR])
+
+    if not os.path.isfile(venv_python):
+        raise RuntimeError(".venv создана, но интерпретатор Python в ней не найден.")
+
+    # Для Windows принципиально нужен pythonw.exe: не возвращаемся к
+    # консольному python.exe, иначе снова появится окно CMD.
+    if os.name == "nt" and not os.path.isfile(venv_pythonw):
+        _run_setup_command([venv_python, "-m", "venv", "--clear", _VENV_DIR])
+
+    if os.name == "nt" and not os.path.isfile(venv_pythonw):
+        raise RuntimeError(".venv повреждена: не найден .venv\\Scripts\\pythonw.exe")
+
+    # Резервный путь для запуска main.py напрямую, без Запуск.vbs.
+    requirements_hash = _requirements_hash()
+    if requirements_hash is not None and _read_saved_requirements_hash() != requirements_hash:
+        _run_setup_command([
+            venv_python,
+            "-m",
+            "pip",
+            "install",
+            "--no-cache-dir",
+            "-r",
+            _REQUIREMENTS_FILE,
+            "--disable-pip-version-check",
+        ])
+        _write_saved_requirements_hash(requirements_hash)
+
+    # Windows: запускаем отдельный pythonw.exe без консольного окна.
+    if os.name == "nt" and os.path.isfile(venv_pythonw):
+        creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        process = subprocess.Popen(
+            [venv_pythonw, os.path.abspath(__file__), *sys.argv[1:]],
+            cwd=_BASE_DIR_FOR_VENV,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=creation_flags,
+        )
+        if process.pid:
+            sys.exit(0)
+        raise RuntimeError("Не удалось запустить программу через pythonw.exe.")
+
+    if active:
+        return
+
+    os.execv(venv_python, [venv_python, os.path.abspath(__file__), *sys.argv[1:]])
+
+
+try:
+    _ensure_venv_and_restart()
+except Exception as startup_error:
+    _show_startup_error(startup_error)
+    raise
+
+try:
+    import cv2
+    import json
+    import time
+    import uuid
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    import keyboard
+    import numpy as np
+    import pyautogui
+    import requests
+
+    import winsound
+    import threading
+    import tkinter as tk
+    from tkinter import ttk, messagebox
+except Exception as import_error:
+    _show_startup_error(import_error)
+    raise
+
+# Файл-маркер: программа действительно дошла до запуска основного кода.
+_STARTUP_MARKER = os.path.join(_BASE_DIR_FOR_VENV, "scanner_running.txt")
+try:
+    with open(_STARTUP_MARKER, "w", encoding="utf-8") as marker_file:
+        marker_file.write(
+            f"PID: {os.getpid()}\n"
+            f"Запущено: {datetime.now(ZoneInfo('Europe/Moscow')).strftime('%d.%m.%Y %H:%M:%S')}\n"
+        )
+except OSError:
+    pass
 from queue import Queue, Empty
 
 # ============================================================
@@ -2192,4 +2387,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as main_error:
+        _show_startup_error(main_error)
+        raise

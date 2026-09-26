@@ -12,6 +12,8 @@ import numpy as np
 import pyautogui
 import requests
 
+from PIL import Image, ImageDraw, ImageFont
+
 import winsound
 
 # ============================================================
@@ -30,6 +32,10 @@ RESULTS_DIR = os.path.join(BASE_DIR, "results")
 UNKNOWN_DIR = os.path.join(BASE_DIR, "unknown_items")
 
 RESULTS_FILE = os.path.join(RESULTS_DIR, "chests.json")
+
+DISCORD_TABLE_IMAGE_FILE = os.path.join(RESULTS_DIR, "discord_items_table.png")
+DISCORD_TABLE_IMAGE_PREFIX = os.path.join(RESULTS_DIR, "discord_items_table_part")
+DISCORD_MESSAGE_IDS_FILE = os.path.join(RESULTS_DIR, "discord_message_ids.json")
 
 
 # ============================================================
@@ -69,7 +75,23 @@ DEFAULT_CONFIG = {
     "scan_interval_seconds": 2,
 
     "discord_webhook_env": "DISCORD_WEBHOOK_URL",
-    "discord_max_items_in_message": 25
+    "discord_max_items_in_message": 25,
+    "discord_delete_old_messages": True,
+
+    # Формат сообщения Discord. Все эти параметры можно менять в config.json.
+    "discord_message": {
+        "header": "",
+        "scanned_chests": "Отсканировано сундуков: **{chests}**",
+        "last_scan": "Время последнего сканирования: **{last_scan}**",
+        "items_title": "══════════Предметы══════════",
+        "columns": "Иконка | Название | Всего | Стаков",
+        "item": "{icon} | {name} | {total} | {stacks}",
+        "item_icon": "📦",
+        "stack_size": 64,
+        "item_separator": "\n",
+        "unknown_title": "══════════Неизвестные предметы══════════",
+        "unknown_item": "• {name}"
+    }
 }
 
 
@@ -1394,12 +1416,185 @@ class ChestReader:
         """12345 -> 12 345"""
         return f"{number:,}".replace(",", " ")
 
+    def get_item_image_path(self, item_name):
+        """Возвращает путь к иконке предмета из items.json."""
+        for item in self.items_db.get("items", []):
+            if item.get("name") != item_name:
+                continue
+
+            image_paths = item.get("images")
+            if not image_paths:
+                image_paths = [item.get("image")]
+
+            for image_path in image_paths:
+                if not image_path:
+                    continue
+
+                full_path = absolute_path(image_path)
+                if full_path and os.path.exists(full_path):
+                    return full_path
+
+        return None
+
+    @staticmethod
+    def load_font(size, bold=False):
+        """Загружает шрифт для таблицы с поддержкой кириллицы."""
+        candidates = []
+
+        if os.name == "nt":
+            candidates.extend([
+                r"C:\Windows\Fonts\arialbd.ttf" if bold else r"C:\Windows\Fonts\arial.ttf",
+                r"C:\Windows\Fonts\segoeuib.ttf" if bold else r"C:\Windows\Fonts\segoeui.ttf",
+            ])
+
+        candidates.extend([
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold
+            else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf" if bold
+            else "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        ])
+
+        for path in candidates:
+            if os.path.exists(path):
+                try:
+                    return ImageFont.truetype(path, size=size)
+                except OSError:
+                    pass
+
+        return ImageFont.load_default()
+
+    def build_discord_items_images(self, sorted_items, stack_size, table_config):
+        """Создаёт несколько PNG-частей таблицы для Discord."""
+        icon_size = max(24, int(table_config.get("image_icon_size", 40)))
+        row_height = max(icon_size + 10, int(table_config.get("image_row_height", 52)))
+        padding = max(8, int(table_config.get("image_padding", 12)))
+        font_size = max(10, int(table_config.get("image_font_size", 18)))
+        header_font_size = max(10, int(table_config.get("image_header_font_size", 16)))
+
+        background = tuple(table_config.get("image_background", [32, 34, 37]))
+        header_background = tuple(table_config.get("image_header_background", [47, 49, 54]))
+        text_color = tuple(table_config.get("image_text_color", [255, 255, 255]))
+        muted_color = tuple(table_config.get("image_muted_color", [185, 187, 190]))
+        border_color = tuple(table_config.get("image_border_color", [79, 84, 92]))
+
+        icon_column = max(70, int(table_config.get("image_icon_column", 70)))
+        name_column = max(220, int(table_config.get("image_name_column", 430)))
+        total_column = max(110, int(table_config.get("image_total_column", 140)))
+        stacks_column = max(100, int(table_config.get("image_stacks_column", 120)))
+        rows_per_part = max(1, int(table_config.get("image_rows_per_part", 20)))
+
+        width = padding * 2 + icon_column + name_column + total_column + stacks_column
+        header_height = max(row_height, 48)
+        image_paths = []
+
+        for part_index, start_index in enumerate(
+            range(0, len(sorted_items), rows_per_part), start=1
+        ):
+            part_items = sorted_items[start_index:start_index + rows_per_part]
+            height = padding * 2 + header_height + row_height * len(part_items)
+            image = Image.new("RGB", (width, height), background)
+            draw = ImageDraw.Draw(image)
+
+            font = self.load_font(font_size)
+            header_font = self.load_font(header_font_size, bold=True)
+
+            draw.rectangle(
+                [padding, padding, width - padding, padding + header_height],
+                fill=header_background
+            )
+
+            x_icon = padding
+            x_name = x_icon + icon_column
+            x_total = x_name + name_column
+            x_stacks = x_total + total_column
+
+            header_y = padding + (header_height - header_font_size) // 2 - 2
+            draw.text((x_icon + 10, header_y), "Иконка", font=header_font, fill=text_color)
+            draw.text((x_name + 10, header_y), "Название", font=header_font, fill=text_color)
+            draw.text((x_total + 10, header_y), "Всего", font=header_font, fill=text_color)
+            draw.text((x_stacks + 10, header_y), "Стаков", font=header_font, fill=text_color)
+
+            draw.line(
+                [padding, padding + header_height, width - padding, padding + header_height],
+                fill=border_color,
+                width=1
+            )
+
+            for index, (item_name, quantity) in enumerate(part_items):
+                y1 = padding + header_height + index * row_height
+                y2 = y1 + row_height
+
+                if index % 2 == 1:
+                    row_bg = tuple(min(255, value + 5) for value in background)
+                    draw.rectangle([padding, y1, width - padding, y2], fill=row_bg)
+
+                for x in (x_name, x_total, x_stacks):
+                    draw.line([x, y1, x, y2], fill=border_color, width=1)
+
+                icon_path = self.get_item_image_path(item_name)
+                if icon_path:
+                    try:
+                        icon = Image.open(icon_path).convert("RGBA")
+                        icon.thumbnail((icon_size, icon_size), Image.Resampling.LANCZOS)
+                        icon_x = x_icon + (icon_column - icon.width) // 2
+                        icon_y = y1 + (row_height - icon.height) // 2
+                        image.paste(icon, (icon_x, icon_y), icon)
+                    except (OSError, ValueError):
+                        draw.text(
+                            (x_icon + 20, y1 + (row_height - font_size) // 2 - 2),
+                            "?", font=font, fill=muted_color
+                        )
+                else:
+                    draw.text(
+                        (x_icon + 20, y1 + (row_height - font_size) // 2 - 2),
+                        "?", font=font, fill=muted_color
+                    )
+
+                if stack_size and quantity < stack_size:
+                    stacks_text = ""
+                else:
+                    stacks = quantity / stack_size if stack_size else quantity
+                    if stacks == int(stacks):
+                        stacks_text = str(int(stacks))
+                    else:
+                        stacks_text = f"{stacks:.2f}".rstrip("0").rstrip(".")
+
+                name = str(item_name)
+                max_name_width = name_column - 20
+                while name and draw.textbbox((0, 0), name, font=font)[2] > max_name_width:
+                    name = name[:-2] + "…"
+
+                text_y = y1 + (row_height - font_size) // 2 - 3
+                draw.text((x_name + 10, text_y), name, font=font, fill=text_color)
+
+                total_text = self.format_number(quantity)
+                total_bbox = draw.textbbox((0, 0), total_text, font=font)
+                draw.text(
+                    (x_total + total_column - 10 - (total_bbox[2] - total_bbox[0]), text_y),
+                    total_text, font=font, fill=text_color
+                )
+
+                stacks_bbox = draw.textbbox((0, 0), stacks_text, font=font)
+                draw.text(
+                    (x_stacks + stacks_column - 10 - (stacks_bbox[2] - stacks_bbox[0]), text_y),
+                    stacks_text, font=font, fill=text_color
+                )
+
+                draw.line([padding, y2, width - padding, y2], fill=border_color, width=1)
+
+            image_path = f"{DISCORD_TABLE_IMAGE_PREFIX}_{part_index}.png"
+            image.save(image_path, "PNG", optimize=True)
+            image_paths.append(image_path)
+
+        return image_paths
+
     def build_discord_message(self, chests):
         """
-        Формирует удобный для поиска отчёт Discord.
+        Формирует сообщение Discord с аккуратно выровненной таблицей.
 
-        Суммирует предметы из ВСЕХ сохранённых сканирований.
-        Каждая строка содержит название и общее количество.
+        В текстовой версии остаётся таблица для поиска Discord.
+        Дополнительно send_all_chests_to_discord() прикрепляет PNG
+        с настоящими иконками каждого предмета.
         """
         if not chests:
             return (
@@ -1407,98 +1602,179 @@ class ChestReader:
                 "Сначала откройте сундук и нажмите `F8`."
             )
 
-        # Общая сумма каждого предмета во всех сундуках.
+        discord_config = self.config.get("discord_message", {})
+
         global_totals = {}
-
-        # В скольких сканированиях найден каждый предмет.
-        item_chest_count = {}
-
-        # Все неизвестные предметы.
         all_unknown_items = set()
 
-        # Общее количество занятых ячеек.
-        total_occupied_slots = 0
-
         for chest in chests:
-            totals = chest.get("totals", {})
-
-            total_occupied_slots += chest.get("occupied_slots", 0)
-
-            for item_name, quantity in totals.items():
-                global_totals[item_name] = (
-                    global_totals.get(item_name, 0) + quantity
-                )
-
-                item_chest_count[item_name] = (
-                    item_chest_count.get(item_name, 0) + 1
-                )
+            for item_name, quantity in chest.get("totals", {}).items():
+                global_totals[item_name] = global_totals.get(item_name, 0) + quantity
 
             for unknown_item in chest.get("unknown_items", []):
                 all_unknown_items.add(unknown_item)
 
-        total_quantity = sum(global_totals.values())
-        total_unique_items = len(global_totals)
+        last_timestamp = chests[-1].get("timestamp", "неизвестно")
+        stack_size = discord_config.get("stack_size", 64)
 
-        last_chest = chests[-1]
-        last_timestamp = last_chest.get("timestamp", "неизвестно")
+        table_config = discord_config.get("table", {})
+        name_width = int(table_config.get("name_width", 30))
+        total_width = int(table_config.get("total_width", 12))
+        stacks_width = int(table_config.get("stacks_width", 10))
+        border = table_config.get("border", "│")
+        header_border = table_config.get("header_border", "─")
 
-        lines = [
-            "📦 **БАЗА ПРЕДМЕТОВ ИЗ ВСЕХ СУНДУКОВ**",
-            "",
-            f"🗂️ Сканирований сундуков: **{len(chests)}**",
-            f"📚 Уникальных предметов: **{total_unique_items}**",
-            f"🔢 Всего предметов: **{self.format_number(total_quantity)}**",
-            f"🧱 Всего занятых ячеек: **{total_occupied_slots}**",
-            f"🕒 Последнее сканирование: `{last_timestamp}`",
-            "",
-            "🔎 **Поиск:** используйте поиск Discord по названию предмета.",
-            "Например: `Морковь`, `Алмаз`, `Семена пшеницы`.",
-            "",
-            "══════════ **ПРЕДМЕТЫ ПО АЛФАВИТУ** ══════════"
-        ]
+        def fit(text, width, align="left"):
+            text = str(text)
+            if len(text) > width:
+                if width <= 1:
+                    return text[:width]
+                text = text[:width - 1] + "…"
+            return text.rjust(width) if align == "right" else text.ljust(width)
 
-        # Алфавитная сортировка удобнее поиска вручную.
-        sorted_items = sorted(
-            global_totals.items(),
-            key=lambda item: item[0].lower()
-        )
-
-        for item_name, quantity in sorted_items:
-            chest_count = item_chest_count.get(item_name, 0)
-
-            # Важно: название идёт обычным текстом, не только в кодовом блоке.
-            # Поэтому Discord может нормально искать по нему.
-            lines.append(
-                f"• **{item_name}** | "
-                f"всего: **{self.format_number(quantity)}** | "
-                f"сундуков: **{chest_count}**"
+        def table_line(name, total, stacks):
+            return (
+                f"{fit(name, name_width)} {border} "
+                f"{fit(total, total_width, 'right')} {border} "
+                f"{fit(stacks, stacks_width, 'right')}"
             )
 
-        if all_unknown_items:
-            lines.extend([
-                "",
-                "══════════ ⚠️ **НЕИЗВЕСТНЫЕ ПРЕДМЕТЫ** ══════════"
-            ])
+        columns = table_line("Название", "Всего", "Стаков")
+        separator = (
+            f"{header_border * name_width}─┼─"
+            f"{header_border * total_width}─┼─"
+            f"{header_border * stacks_width}"
+        )
 
-            for item_name in sorted(all_unknown_items):
-                lines.append(f"• **{item_name}**")
+        sorted_items = sorted(
+            global_totals.items(), key=lambda item: item[0].lower()
+        )
+
+        item_lines = []
+        for item_name, quantity in sorted_items:
+            if stack_size and quantity < stack_size:
+                stacks_text = ""
+            else:
+                stacks = quantity / stack_size if stack_size else quantity
+                if stacks == int(stacks):
+                    stacks_text = str(int(stacks))
+                else:
+                    stacks_text = f"{stacks:.2f}".rstrip("0").rstrip(".")
+
+            item_lines.append(
+                table_line(
+                    item_name,
+                    self.format_number(quantity),
+                    stacks_text
+                )
+            )
+
+        table = "\n".join([columns, separator] + item_lines)
+        items_text = f"```text\n{table}\n```"
+
+        unknown_template = discord_config.get("unknown_item", "• {name}")
+        unknowns_text = discord_config.get("item_separator", "\n").join(
+            unknown_template.format(name=name)
+            for name in sorted(all_unknown_items)
+        )
+
+        values = {
+            "chests": len(chests),
+            "last_scan": last_timestamp,
+            "items": items_text,
+            "unknowns": unknowns_text,
+        }
+
+        header = discord_config.get("header", "")
+        scanned_chests = discord_config.get(
+            "scanned_chests", "Отсканировано сундуков: {chests}"
+        ).format(**values)
+        last_scan = discord_config.get(
+            "last_scan", "Время последнего сканирования: {last_scan}"
+        ).format(**values)
+        items_title = discord_config.get("items_title", "══════════Предметы══════════")
+
+        lines = []
+        if header:
+            lines.extend([header, ""])
 
         lines.extend([
+            scanned_chests,
+            last_scan,
             "",
-            "📎 Полные данные, позиции ячеек и история сканирований — в `chests.json`."
+            items_title,
+            "",
+            items_text
         ])
 
-        message = "\n".join(lines)
+        if all_unknown_items:
+            unknown_title = discord_config.get(
+                "unknown_title", "══════════Неизвестные предметы══════════"
+            )
+            lines.extend(["", unknown_title, "", unknowns_text])
 
-        # Лимит одного сообщения Discord — 2000 символов.
-        # Если предметов много, разбивка выполняется в send_all_chests_to_discord().
-        return message
+        return "\n".join(lines)
+
+
+    def delete_old_discord_messages(self, webhook_url):
+        """Удаляет предыдущие сообщения, отправленные этим webhook."""
+        if not self.config.get("discord_delete_old_messages", True):
+            return
+
+        data = load_json(DISCORD_MESSAGE_IDS_FILE, {"message_ids": []})
+        message_ids = data.get("message_ids", [])
+
+        if not message_ids:
+            return
+
+        deleted = 0
+        failed = 0
+
+        for message_id in message_ids:
+            try:
+                response = requests.delete(
+                    f"{webhook_url}/messages/{message_id}",
+                    timeout=15
+                )
+
+                if response.status_code in (200, 204, 404):
+                    # 404 означает, что сообщение уже удалено — это нормально.
+                    deleted += 1
+                else:
+                    failed += 1
+                    print(
+                        f"[DISCORD] Не удалось удалить старое сообщение "
+                        f"{message_id}: {response.status_code} {response.text}"
+                    )
+
+            except requests.RequestException as error:
+                failed += 1
+                print(
+                    f"[DISCORD] Ошибка удаления сообщения "
+                    f"{message_id}: {error}"
+                )
+
+        # Не оставляем удалённые ID в истории.
+        save_json(DISCORD_MESSAGE_IDS_FILE, {"message_ids": []})
+
+        print(
+            f"[DISCORD] Старые сообщения: удалено {deleted}"
+            + (f", ошибок {failed}" if failed else "")
+        )
+
+    @staticmethod
+    def save_discord_message_ids(message_ids):
+        """Сохраняет ID сообщений, отправленных текущим отчётом."""
+        save_json(
+            DISCORD_MESSAGE_IDS_FILE,
+            {"message_ids": [str(message_id) for message_id in message_ids]}
+        )
 
     def send_all_chests_to_discord(self):
         """
         Отправляет отчёт в Discord несколькими сообщениями,
         если он превышает лимит 2000 символов.
-        JSON прикрепляется к первому сообщению.
+        JSON-файл в Discord не отправляется.
         """
         env_name = self.config.get(
             "discord_webhook_env",
@@ -1531,7 +1807,37 @@ class ChestReader:
             print("[DISCORD] Нет сохранённых сканирований.")
             return
 
+        # Перед новым отчётом удаляем предыдущие сообщения этого webhook.
+        self.delete_old_discord_messages(webhook_url)
+
         full_message = self.build_discord_message(chests)
+
+        # Создаём отдельную PNG-таблицу с реальными иконками предметов.
+        discord_config = self.config.get("discord_message", {})
+        table_config = discord_config.get("table", {})
+        global_totals = {}
+        for chest in chests:
+            for item_name, quantity in chest.get("totals", {}).items():
+                global_totals[item_name] = global_totals.get(item_name, 0) + quantity
+
+        sorted_items = sorted(
+            global_totals.items(), key=lambda item: item[0].lower()
+        )
+        table_image_paths = []
+        if sorted_items:
+            try:
+                table_config = dict(table_config)
+                table_config.setdefault(
+                    "image_rows_per_part",
+                    self.config.get("discord_image_rows_per_part", 20)
+                )
+                table_image_paths = self.build_discord_items_images(
+                    sorted_items,
+                    discord_config.get("stack_size", 64),
+                    table_config
+                )
+            except Exception as error:
+                print(f"[DISCORD] Не удалось создать таблицы с иконками: {error}")
 
         # В Discord максимум 2000 символов.
         # Используем 1900, чтобы оставить запас.
@@ -1548,78 +1854,73 @@ class ChestReader:
         total_parts = len(message_parts)
 
         try:
-            # Первое сообщение отправляется вместе с JSON-файлом.
-            first_message = message_parts[0]
+            sent_message_ids = []
 
-            if len(first_message) > 1900:
-                first_message = first_message[:1900]
+            # Объединяем части текстового отчёта с частями PNG-таблицы:
+            # одно сообщение Discord = текстовая часть + соответствующая картинка.
+            paired_count = max(len(message_parts), len(table_image_paths), 1)
 
-            with open(RESULTS_FILE, "rb") as file:
-                response = requests.post(
-                    webhook_url,
-                    data={
-                        "content": first_message,
-                        "username": "Chest Scanner"
-                    },
-                    files={
-                        "file": (
-                            "chests.json",
-                            file,
-                            "application/json"
-                        )
-                    },
-                    timeout=30
-                )
+            for index in range(paired_count):
+                if index == 0:
+                    content = message_parts[0] if message_parts else "📦 Отчёт пуст."
+                else:
+                    header = (
+                        f"📦 **Продолжение отчёта "
+                        f"({index + 1}/{len(message_parts)})**\n\n"
+                    )
+                    part = message_parts[index] if index < len(message_parts) else ""
+                    available_length = 1900 - len(header)
+                    content = header + part[:max(1, available_length)]
 
-            if response.status_code not in (200, 204):
-                print(
-                    f"[DISCORD] Ошибка первой части "
-                    f"{response.status_code}: {response.text}"
-                )
-                return
-
-            # Остальные части отправляются отдельно.
-            for index, part in enumerate(
-                message_parts[1:],
-                start=2
-            ):
-                header = (
-                    f"📦 **Продолжение отчёта "
-                    f"({index}/{total_parts})**\n\n"
-                )
-
-                # Обрезаем тело так, чтобы вместе с заголовком
-                # длина не превысила 1900 символов.
-                available_length = 1900 - len(header)
-
-                safe_part = part[:max(1, available_length)]
-
-                content = header + safe_part
-
-                # Финальная защита.
                 content = content[:1900]
 
-                response = requests.post(
-                    webhook_url,
-                    data={
-                        "content": content,
-                        "username": "Chest Scanner"
-                    },
-                    timeout=30
-                )
+                image_file = None
+                try:
+                    files = {}
+                    if index < len(table_image_paths) and os.path.exists(table_image_paths[index]):
+                        image_file = open(table_image_paths[index], "rb")
+                        files["table_image"] = (
+                            os.path.basename(table_image_paths[index]),
+                            image_file,
+                            "image/png"
+                        )
+
+                    response = requests.post(
+                        webhook_url,
+                        params={"wait": "true"},
+                        data={
+                            "content": content,
+                            "username": "Chest Scanner"
+                        },
+                        files=files if files else None,
+                        timeout=30
+                    )
+                finally:
+                    if image_file is not None:
+                        image_file.close()
 
                 if response.status_code not in (200, 204):
                     print(
-                        f"[DISCORD] Ошибка части {index} "
+                        f"[DISCORD] Ошибка сообщения {index + 1}/{paired_count} "
                         f"{response.status_code}: {response.text}"
                     )
                     return
 
+                try:
+                    message_data = response.json()
+                    message_id = message_data.get("id")
+                    if message_id:
+                        sent_message_ids.append(message_id)
+                except (ValueError, AttributeError):
+                    pass
+
                 time.sleep(0.7)
 
+            self.save_discord_message_ids(sent_message_ids)
+
             print(
-                f"[DISCORD] Отправлено частей: {total_parts}. "
-                f"JSON прикреплён к первой части."
+                f"[DISCORD] Отчёт отправлен: {len(sent_message_ids)} сообщений, "
+                f"{len(table_image_paths)} таблиц."
             )
 
         except requests.RequestException as error:

@@ -31,6 +31,64 @@
   "scan_interval_seconds": 2,
   "discord_webhook_env": "DISCORD_WEBHOOK_URL",
   "discord_max_items_in_message": 25,
+  "discord_delete_old_messages": true,
+  "discord_message": {
+    "header": "",
+    "scanned_chests": "Отсканировано сундуков: {chests}",
+    "last_scan": "Время последнего сканирования: {last_scan}",
+    "items_title": "══════════Предметы══════════",
+    "columns": "Иконка | Название | Всего | Стаков",
+    "item": "{icon} | {name} | {total} | {stacks}",
+    "item_icon": "📦",
+    "stack_size": 64,
+    "item_separator": "\n",
+    "unknown_title": "══════════Неизвестные предметы══════════",
+    "unknown_item": "• {name}",
+    "table": {
+      "icon_width": 6,
+      "name_width": 30,
+      "total_width": 12,
+      "stacks_width": 10,
+      "border": "│",
+      "header_border": "─",
+      "image_icon_size": 40,
+      "image_row_height": 52,
+      "image_padding": 12,
+      "image_font_size": 18,
+      "image_header_font_size": 16,
+      "image_icon_column": 70,
+      "image_name_column": 430,
+      "image_total_column": 140,
+      "image_stacks_column": 120,
+      "image_background": [
+        32,
+        34,
+        37
+      ],
+      "image_header_background": [
+        47,
+        49,
+        54
+      ],
+      "image_text_color": [
+        255,
+        255,
+        255
+      ],
+      "image_muted_color": [
+        185,
+        187,
+        190
+      ],
+      "image_border_color": [
+        79,
+        84,
+        92
+      ],
+      "image_rows_per_part": 20
+    }
+  },
   "item_match_margin": 250,
-  "print_item_candidates": true
+  "print_item_candidates": true,
+  "discord_image_rows_per_part": 20
 }

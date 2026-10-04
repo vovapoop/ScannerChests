@@ -7,9 +7,16 @@ import unicodedata
 import shutil
 
 # ============================================================
-# AUTOMATIC .venv CREATION AND RESTART
+# AUTONOMOUS / PYINSTALLER SUPPORT
 # ============================================================
-_BASE_DIR_FOR_VENV = os.path.dirname(os.path.abspath(__file__))
+IS_FROZEN = getattr(sys, "frozen", False)
+
+if IS_FROZEN:
+    BASE_DIR_FOR_APP = os.path.dirname(sys.executable)
+else:
+    BASE_DIR_FOR_APP = os.path.dirname(os.path.abspath(__file__))
+
+_BASE_DIR_FOR_VENV = BASE_DIR_FOR_APP
 _VENV_DIR = os.path.join(_BASE_DIR_FOR_VENV, ".venv")
 _REQUIREMENTS_FILE = os.path.join(_BASE_DIR_FOR_VENV, "requirements.txt")
 _REQUIREMENTS_HASH_FILE = os.path.join(_VENV_DIR, ".requirements.sha256")
@@ -98,6 +105,10 @@ def _show_startup_error(error):
 
 
 def _ensure_venv_and_restart():
+    # В автономной сборке .venv не нужен.
+    if IS_FROZEN:
+        return
+
     if _venv_is_active():
         return
 
@@ -169,8 +180,12 @@ try:
     import tkinter as tk
     from tkinter import ttk, messagebox, filedialog, simpledialog
     from datetime import datetime
-    from zoneinfo import ZoneInfo
     from queue import Queue, Empty
+
+    try:
+        from zoneinfo import ZoneInfo
+    except ImportError:
+        ZoneInfo = None
 
     try:
         import keyboard
@@ -193,7 +208,7 @@ except Exception as import_error:
 # ============================================================
 # PATHS
 # ============================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = BASE_DIR_FOR_APP
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 ITEMS_FILE = os.path.join(BASE_DIR, "items.json")
 PROFILE_DIR = BASE_DIR
@@ -208,6 +223,16 @@ RESULTS_FILE = os.path.join(RESULTS_DIR, "chests.json")
 HISTORY_DIR = os.path.join(RESULTS_DIR, "history")
 DISCORD_MESSAGE_IDS_FILE = os.path.join(RESULTS_DIR, "discord_message_ids.json")
 DISCORD_WEBHOOK_FILE = os.path.join(PROFILE_DIR, "discord_webhook.json")
+
+
+def now_moscow():
+    if ZoneInfo is not None:
+        try:
+            return datetime.now(ZoneInfo("Europe/Moscow"))
+        except Exception:
+            pass
+    return datetime.now()
+
 
 DEFAULT_CONFIG = {
     "profile_name": "Default",
@@ -228,9 +253,12 @@ DEFAULT_CONFIG = {
     "chest_template_threshold": 0.82,
     "empty_slot_threshold": 1200,
     "item_match_threshold": 2600,
+    "item_match_margin": 150,
     "scan_interval_seconds": 2,
+    "print_item_candidates": False,
     "discord_webhook_env": "DISCORD_WEBHOOK_URL",
     "discord_max_items_in_message": 25,
+    "discord_delete_old_messages": True,
     "discord_message": {
         "header": "",
         "scanned_chests": "Отсканировано сундуков: **{chests}**",
@@ -242,6 +270,11 @@ DEFAULT_CONFIG = {
         "item_separator": "\n",
         "unknown_title": "══════════Неизвестные предметы══════════",
         "unknown_item": "• {name}",
+        "table": {
+            "name_width": 30,
+            "total_width": 12,
+            "stacks_width": 10,
+        },
     },
 }
 
@@ -279,6 +312,7 @@ def absolute_path(path):
 
     if profile_scoped:
         return os.path.join(PROFILE_DIR, normalized)
+
     return os.path.join(BASE_DIR, path)
 
 
@@ -375,18 +409,21 @@ def normalize_items_db(data):
 
 def load_json(path, default_data):
     if not os.path.exists(path):
-        return default_data.copy() if isinstance(default_data, dict) else default_data
+        return default_data.copy() if hasattr(default_data, "copy") else default_data
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError) as error:
         print(f"[JSON] Failed to read {path}: {error}")
-        return default_data.copy() if isinstance(default_data, dict) else default_data
+        return default_data.copy() if hasattr(default_data, "copy") else default_data
 
 
 def save_json(path, data):
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    folder = os.path.dirname(path)
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -672,20 +709,20 @@ class ChestReader:
         self.prompted_unknowns = set()
         self.unknown_item_prompt = None
 
-        self._stack_size_cache = {}
-        self._rebuild_stack_size_cache()
+        self._stack_cache = {}
+        self._rebuild_stack_cache()
 
         self.print_startup_status()
 
-    def _rebuild_stack_size_cache(self):
-        self._stack_size_cache = {}
+    def _rebuild_stack_cache(self):
+        self._stack_cache = {}
         for item in self.items_db.get("items", []):
             name = item.get("name")
             if name:
-                self._stack_size_cache[name] = item.get("stack_size", 64)
+                self._stack_cache[name] = item.get("stack_size", 64)
 
     def get_item_stack_size(self, item_name, default_stack_size=64):
-        return self._stack_size_cache.get(item_name, default_stack_size)
+        return self._stack_cache.get(item_name, default_stack_size)
 
     def play_scan_start_sound(self):
         if not WINSOUND_AVAILABLE:
@@ -889,7 +926,6 @@ class ChestReader:
             return 1
 
         characters.sort(key=lambda item: item["x1"])
-
         result = []
 
         for character in characters:
@@ -1225,7 +1261,7 @@ class ChestReader:
 
         self.items_db = normalize_items_db(self.items_db)
         save_json(ITEMS_FILE, self.items_db)
-        self._rebuild_stack_size_cache()
+        self._rebuild_stack_cache()
 
         return final_name
 
@@ -1248,7 +1284,7 @@ class ChestReader:
         self.chest_was_open = False
         self.prompted_unknowns.clear()
 
-        self._rebuild_stack_size_cache()
+        self._rebuild_stack_cache()
 
     def save_chest_result(self, chest_data):
         data = load_json(RESULTS_FILE, {"chests": []})
@@ -1304,10 +1340,7 @@ class ChestReader:
                 continue
 
             item_name, is_unknown, similarity = self.detect_item(icon_image)
-            quantity = self.read_quantity(
-                slot_image,
-                debug_name=f"r{slot['row'] + 1}_c{slot['column'] + 1}",
-            )
+            quantity = self.read_quantity(slot_image)
 
             if is_unknown:
                 unknown_items.add(item_name)
@@ -1325,7 +1358,7 @@ class ChestReader:
 
         chest_data = {
             "id": str(uuid.uuid4()),
-            "timestamp": datetime.now(ZoneInfo("Europe/Moscow")).strftime("%d.%m.%Y %H:%M:%S"),
+            "timestamp": now_moscow().strftime("%d.%m.%Y %H:%M:%S"),
             "screen_resolution": [screen.shape[1], screen.shape[0]],
             "occupied_slots": len(slot_list),
             "unique_items": len(totals),
@@ -1601,7 +1634,7 @@ class ChestReader:
         if not chests:
             return None
 
-        timestamp = datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = now_moscow().strftime("%Y-%m-%d_%H-%M-%S")
         history_path = os.path.join(HISTORY_DIR, f"report_{timestamp}.json")
 
         counter = 2
@@ -1683,15 +1716,16 @@ class ChestReader:
 
                 time.sleep(0.5)
 
-            for message_id in old_ids[total_parts:]:
-                ok, error = self._delete_discord_message(webhook_url, message_id)
+            if self.config.get("discord_delete_old_messages", True):
+                for message_id in old_ids[total_parts:]:
+                    ok, error = self._delete_discord_message(webhook_url, message_id)
 
-                if ok:
-                    deleted += 1
-                else:
-                    return False, f"Cannot delete extra message {message_id}: {error}"
+                    if ok:
+                        deleted += 1
+                    else:
+                        return False, f"Cannot delete extra message {message_id}: {error}"
 
-                time.sleep(0.3)
+                    time.sleep(0.3)
 
             self.save_discord_message_ids(new_ids)
             history_path = self.archive_report_after_discord()
@@ -2021,6 +2055,7 @@ class ScannerGUI:
 
     def _first_run_wizard(self):
         dialog = self._modal("First run setup", "700x480")
+        self._wizard_dialog = dialog
 
         state = {
             "page": 0,
@@ -2231,10 +2266,7 @@ class ScannerGUI:
         dialog.bind("<Return>", lambda _e: go_next())
 
         render_page(0)
-        self.root.wait_window(dialog)
-
-        if self.running and self.root.winfo_exists():
-            self.root.deiconify()
+        dialog.wait_window(dialog)
 
     def _prompt_unknown_item(self, unknown_name, image_path):
         result = {"name": ""}
@@ -2858,7 +2890,7 @@ class ScannerGUI:
             self.reader.items_db = normalize_items_db(self.reader.items_db)
             save_json(ITEMS_FILE, self.reader.items_db)
             self.reader.items_db = normalize_items_db(load_json(ITEMS_FILE, {"items": []}))
-            self.reader._rebuild_stack_size_cache()
+            self.reader._rebuild_stack_cache()
             refresh()
             self._refresh_stats()
 
@@ -2977,6 +3009,14 @@ class ScannerGUI:
             if not messagebox.askyesno("Delete", f"Delete '{item.get('name', '')}' from database?", parent=dialog):
                 return
 
+            for path in item.get("images", []):
+                try:
+                    full = absolute_path(path)
+                    if os.path.isfile(full):
+                        os.remove(full)
+                except OSError:
+                    pass
+
             self.reader.items_db["items"] = [x for x in get_items() if x.get("id") != item.get("id")]
             state["selected_id"] = None
             save_db()
@@ -3020,7 +3060,10 @@ class ScannerGUI:
             if index >= len(images):
                 return
 
-            path = images.pop(index)
+            path = images[index]
+
+            if not messagebox.askyesno("Remove photo", f"Remove photo?\n{os.path.basename(path)}", parent=dialog):
+                return
 
             try:
                 full = absolute_path(path)
@@ -3029,6 +3072,7 @@ class ScannerGUI:
             except OSError:
                 pass
 
+            images.pop(index)
             item["images"] = images
             item["image"] = images[0] if images else ""
 
@@ -3044,8 +3088,21 @@ class ScannerGUI:
 
             images = item.get("images") or []
             path = images[sel[0]]
+            current_base = os.path.splitext(os.path.basename(path))[0]
 
-            new_rel = next_image_path(item.get("name", "item"), os.path.splitext(path)[1])
+            base = simpledialog.askstring(
+                "Rename photo",
+                "New file base name:",
+                initialvalue=current_base,
+                parent=dialog,
+            )
+
+            if base is None:
+                return
+
+            base = base.strip() or current_base
+            ext = os.path.splitext(path)[1] or ".png"
+            new_rel = next_image_path(base, ext)
 
             try:
                 shutil.move(absolute_path(path), absolute_path(new_rel))
@@ -3195,6 +3252,50 @@ class ScannerGUI:
             profiles["profiles"] = load_profiles().get("profiles", [])
             refresh_profiles()
 
+        def rename_profile():
+            name = chosen()
+
+            if not name or name == "Default":
+                messagebox.showinfo("Profile", "Default profile cannot be renamed.", parent=dialog)
+                return
+
+            new_name = simpledialog.askstring("Rename profile", "New name:", initialvalue=name, parent=dialog)
+            if not new_name or not new_name.strip():
+                return
+
+            new_name = new_name.strip()
+
+            if any(c in new_name for c in '/\\:*?"<>|'):
+                messagebox.showerror("Profile", "Invalid characters.", parent=dialog)
+                return
+
+            pdata = load_profiles()
+            entry = next((x for x in pdata.get("profiles", []) if x.get("name") == name), None)
+
+            if entry is None:
+                return
+
+            new_dir_name = os.path.join("profiles", sanitize_filename(new_name))
+            old_abs = os.path.join(BASE_DIR, entry.get("directory", ""))
+            new_abs = os.path.join(BASE_DIR, new_dir_name)
+
+            try:
+                if old_abs != new_abs and os.path.isdir(old_abs):
+                    os.rename(old_abs, new_abs)
+            except OSError as error:
+                messagebox.showerror("Profile", f"Cannot rename folder: {error}", parent=dialog)
+                return
+
+            entry["name"] = new_name
+            entry["directory"] = new_dir_name.replace("\\", "/")
+
+            pdata["active"] = new_name if pdata.get("active") == name else pdata.get("active")
+            save_profiles(pdata)
+
+            profiles.clear()
+            profiles.update(pdata)
+            refresh_profiles()
+
         def delete_profile():
             name = chosen()
 
@@ -3226,6 +3327,7 @@ class ScannerGUI:
         for text, cmd, accent in (
             ("Switch", switch_profile, True),
             ("New", create_profile, False),
+            ("Rename", rename_profile, False),
             ("Delete", delete_profile, False),
         ):
             self._button(button_panel, text, cmd, accent).pack(fill="x", pady=4)
@@ -3351,7 +3453,7 @@ class ScannerGUI:
             pass
 
     def _log(self, message, color=None):
-        stamp = datetime.now(ZoneInfo("Europe/Moscow")).strftime("%H:%M:%S")
+        stamp = now_moscow().strftime("%H:%M:%S")
         self.log_queue.put((f"[{stamp}] {message}", color))
 
     def _poll_logs(self):

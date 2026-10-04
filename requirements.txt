@@ -1,6 +1,7 @@
 opencv-python
-keyboard
 numpy
 pyautogui
+keyboard
 requests
+Pillow
 tzdata

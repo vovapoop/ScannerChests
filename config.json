@@ -1,4 +1,6 @@
 {
+  "profile_name": "Default",
+  "setup_complete": true,
   "reference_screen_size": [
     1920,
     1080
@@ -26,9 +28,9 @@
     0.9
   ],
   "chest_template_threshold": 0.82,
-  "empty_slot_threshold": 800,
-  "item_match_threshold": 250,
-  "scan_interval_seconds": 2,
+  "empty_slot_threshold": 800.0,
+  "item_match_threshold": 250.0,
+  "scan_interval_seconds": 2.0,
   "discord_webhook_env": "DISCORD_WEBHOOK_URL",
   "discord_max_items_in_message": 25,
   "discord_message": {

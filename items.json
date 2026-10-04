@@ -1,1049 +1,1920 @@
 {
+  "version": 2,
   "items": [
     {
       "name": "Bear meat",
       "images": [
         "assets/items/bear_meat.png"
-      ]
+      ],
+      "id": "18fa9426-f322-48f3-a605-6b35f781d53b",
+      "image": "assets/items/bear_meat.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Bloom berries",
       "images": [
         "assets/items/bloom_berries.png"
-      ]
+      ],
+      "id": "a3294c69-fdea-48d3-b378-89765aa932af",
+      "image": "assets/items/bloom_berries.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Аметистовый блок",
       "images": [
         "assets/items/ametistovyy_blok.png"
-      ]
+      ],
+      "id": "2347d4c7-9834-44da-811d-933336a8da23",
+      "image": "assets/items/ametistovyy_blok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Андезит",
       "images": [
         "assets/items/andezit.png"
-      ]
+      ],
+      "id": "a4f6fed3-af44-4a2c-84f8-ec9c19260216",
+      "image": "assets/items/andezit.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Апатит",
       "images": [
         "assets/items/apatit.png"
-      ]
+      ],
+      "id": "9101d506-af55-47ca-8545-24b3db303a15",
+      "image": "assets/items/apatit.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Арбуз",
       "images": [
         "assets/items/arbuz.png"
-      ]
+      ],
+      "id": "fc6eeacc-0d87-436a-bf76-493be4df0297",
+      "image": "assets/items/arbuz.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Багровая ножка",
       "images": [
         "assets/items/bagrovaya_nozhka.png"
-      ]
+      ],
+      "id": "1e2e6fb2-148d-41f3-9804-d2849c3da1f0",
+      "image": "assets/items/bagrovaya_nozhka.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бамбук",
       "images": [
         "assets/items/bambuk.png"
-      ]
+      ],
+      "id": "38056acc-1731-411b-b47d-63c312f9910b",
+      "image": "assets/items/bambuk.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Белая шерсть",
       "images": [
         "assets/items/belaya_sherst.png"
-      ]
+      ],
+      "id": "48361860-82bd-49f2-9993-e5bcd736277e",
+      "image": "assets/items/belaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Белый краситель",
       "images": [
         "assets/items/belyy_krasitel.png"
-      ]
+      ],
+      "id": "d6734fe9-3959-435b-8237-03f1424bd19c",
+      "image": "assets/items/belyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бирюзовый краситель",
       "images": [
         "assets/items/biryuzovyy_krasitel.png"
-      ]
+      ],
+      "id": "de267541-488d-4059-8be7-eed66a805945",
+      "image": "assets/items/biryuzovyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Блок рудного железа",
       "images": [
         "assets/items/blok_rudnogo_zheleza.png"
-      ]
+      ],
+      "id": "ca422868-8040-4a8c-a08b-0d3070f838b4",
+      "image": "assets/items/blok_rudnogo_zheleza.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Блок рудного золота",
       "images": [
         "assets/items/blok_rudnogo_zolota.png"
-      ]
+      ],
+      "id": "76b5694d-1f04-48f4-8bfb-6993b464f7a2",
+      "image": "assets/items/blok_rudnogo_zolota.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Блок рудной меди",
       "images": [
         "assets/items/blok_rudnoy_medi.png"
-      ]
+      ],
+      "id": "468a38d3-c067-4f71-be50-cf2a3879805c",
+      "image": "assets/items/blok_rudnoy_medi.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бревно белого дуба",
       "images": [
         "assets/items/brevno_belogo_duba.png"
-      ]
+      ],
+      "id": "0b916d10-433a-413e-88cc-f7a9832b4ef3",
+      "image": "assets/items/brevno_belogo_duba.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бревно джунглевого дерева",
       "images": [
         "assets/items/brevno_dzhunglevogo_dereva.png"
-      ]
+      ],
+      "id": "ba7fc902-91e4-4302-a4f0-1a3dfdb4f492",
+      "image": "assets/items/brevno_dzhunglevogo_dereva.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бревно каштана",
       "images": [
         "assets/items/brevno_kashtana.png"
-      ]
+      ],
+      "id": "5dc5c0c3-155e-4693-b968-ac777a9ddd2a",
+      "image": "assets/items/brevno_kashtana.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бревно соснового дерева",
       "images": [
         "assets/items/brevno_sosnovogo_dereva.png"
-      ]
+      ],
+      "id": "d26aaaae-63c0-4f26-8074-17705573cf9b",
+      "image": "assets/items/brevno_sosnovogo_dereva.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бревно сумеречного дуба",
       "images": [
         "assets/items/brevno_sumerechnogo_duba.png"
-      ]
+      ],
+      "id": "f3894341-93ac-4b77-a717-6116fc27db39",
+      "image": "assets/items/brevno_sumerechnogo_duba.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бревно тёмного дерева",
       "images": [
         "assets/items/brevno_tyomnogo_dereva.png"
-      ]
+      ],
+      "id": "fe667335-e5f6-4641-9e05-418a80262eee",
+      "image": "assets/items/brevno_tyomnogo_dereva.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бревно тёмного дуба",
       "images": [
         "assets/items/brevno_tyomnogo_duba.png"
-      ]
+      ],
+      "id": "4007486f-ab10-4a67-99ff-ed41cf8291c6",
+      "image": "assets/items/brevno_tyomnogo_duba.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Булыжник",
       "images": [
         "assets/items/bulyzhnik.png"
-      ]
+      ],
+      "id": "8753cf6e-a109-415b-84e3-b4d6ed3d630d",
+      "image": "assets/items/bulyzhnik.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Бутылочка мёда",
       "images": [
         "assets/items/butylochka_myoda.png"
-      ]
+      ],
+      "id": "04c2b22a-bd77-4179-a87b-8adf2f476d83",
+      "image": "assets/items/butylochka_myoda.png",
+      "stack_size": 16,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Вишнёвая древесина",
       "images": [
         "assets/items/vishnyovaya_drevesina.png"
-      ]
+      ],
+      "id": "f2dca380-13eb-45fc-b716-9d35ae0b1e10",
+      "image": "assets/items/vishnyovaya_drevesina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Глина",
       "images": [
         "assets/items/glina.png"
-      ]
+      ],
+      "id": "28c6aebd-6342-435e-bffa-48c4f14e9eb4",
+      "image": "assets/items/glina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Глубинный сланец",
       "images": [
         "assets/items/glubinnyy_slanets.png"
-      ]
+      ],
+      "id": "7f3b18b9-9780-4326-92d9-eca1fc68ae47",
+      "image": "assets/items/glubinnyy_slanets.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Гнилая плоть",
       "images": [
         "assets/items/gnilaya_plot.png"
-      ]
+      ],
+      "id": "97c2e705-15d8-4174-9930-dea2b70ad5f1",
+      "image": "assets/items/gnilaya_plot.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Голубой краситель",
       "images": [
         "assets/items/goluboy_krasitel.png"
-      ]
+      ],
+      "id": "4ef5321d-998b-4fed-bb36-a691c5889c22",
+      "image": "assets/items/goluboy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Голубцы",
       "images": [
         "assets/items/golubtsy.png"
-      ]
+      ],
+      "id": "422916b7-c320-49a1-906b-f319a9aaf090",
+      "image": "assets/items/golubtsy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Гравий",
       "images": [
         "assets/items/graviy.png"
-      ]
+      ],
+      "id": "97570b02-a361-49b3-a0ed-80225f96d9b8",
+      "image": "assets/items/graviy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Гриб",
       "images": [
         "assets/items/grib.png"
-      ]
+      ],
+      "id": "282a94c3-9eb8-463e-8f04-da08f68f29dc",
+      "image": "assets/items/grib.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Диорит",
       "images": [
         "assets/items/diorit.png"
-      ]
+      ],
+      "id": "34b1ea5c-f417-4db1-bdb3-506e4f03887b",
+      "image": "assets/items/diorit.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Древесный уголь",
       "images": [
         "assets/items/drevesnyy_ugol.png"
-      ]
+      ],
+      "id": "048b945a-519d-4dd1-ba4a-068796702200",
+      "image": "assets/items/drevesnyy_ugol.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Дубовое бревно",
       "images": [
         "assets/items/dubovoe_brevno.png"
-      ]
+      ],
+      "id": "5a634f03-ee4e-4e4d-aa5e-b8fb53b79075",
+      "image": "assets/items/dubovoe_brevno.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Еловая древесина",
       "images": [
         "assets/items/elovaya_drevesina.png"
-      ]
+      ],
+      "id": "c6360c9e-39b2-415e-974d-db36ed7e36c2",
+      "image": "assets/items/elovaya_drevesina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Еловое бревно",
       "images": [
         "assets/items/elovoe_brevno.png"
-      ]
+      ],
+      "id": "e217615e-eb24-46b7-891e-99498b8af598",
+      "image": "assets/items/elovoe_brevno.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Жареная баранина",
       "images": [
         "assets/items/zharenaya_baranina.png"
-      ]
+      ],
+      "id": "ac7642a3-be33-4475-9a0f-b53eeb91a5e6",
+      "image": "assets/items/zharenaya_baranina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Жареная крольчатина",
       "images": [
         "assets/items/zharenaya_krolchatina.png"
-      ]
+      ],
+      "id": "a599f3ff-a1ce-44c4-942a-1e9661307aed",
+      "image": "assets/items/zharenaya_krolchatina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Жареная курица",
       "images": [
         "assets/items/zharenaya_kuritsa.png"
-      ]
+      ],
+      "id": "39f3bf70-c71e-4d2f-b628-3f1b07a9b640",
+      "image": "assets/items/zharenaya_kuritsa.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Жареная свинина",
       "images": [
         "assets/items/zharenaya_svinina.png"
-      ]
+      ],
+      "id": "c02d0a41-8504-4858-97b9-21faba52c712",
+      "image": "assets/items/zharenaya_svinina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Жареный рис",
       "images": [
         "assets/items/zharenyy_ris.png"
-      ]
+      ],
+      "id": "d248a641-915c-463c-bd87-b6934b99ef04",
+      "image": "assets/items/zharenyy_ris.png",
+      "stack_size": 16,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Железный слиток",
       "images": [
         "assets/items/zheleznyy_slitok.png"
-      ]
+      ],
+      "id": "6839f806-97e8-4ba1-9d69-5c93b210bf32",
+      "image": "assets/items/zheleznyy_slitok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Жир",
       "images": [
         "assets/items/zhir.png"
-      ]
+      ],
+      "id": "210ced48-23b0-4460-b457-66be12cc8198",
+      "image": "assets/items/zhir.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Жёлтая шерсть",
       "images": [
         "assets/items/zhyoltaya_sherst.png"
-      ]
+      ],
+      "id": "d5817192-ce1d-4e14-945c-6faaeb103d02",
+      "image": "assets/items/zhyoltaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Запечённая тушеная треска",
       "images": [
         "assets/items/zapechyonnaya_tushenaya_treska.png"
-      ]
+      ],
+      "id": "c22f32fa-7cd6-4608-aa15-14ee79817abc",
+      "image": "assets/items/zapechyonnaya_tushenaya_treska.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Зелёный краситель",
       "images": [
         "assets/items/zelyonyy_krasitel.png"
-      ]
+      ],
+      "id": "f01600d0-cd28-4db8-a64b-489ba3ebbd24",
+      "image": "assets/items/zelyonyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Земля",
       "images": [
         "assets/items/zemlya.png"
-      ]
+      ],
+      "id": "86b37d11-8b3b-43e6-84b6-2878b070b64e",
+      "image": "assets/items/zemlya.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Золотая морковь",
       "images": [
         "assets/items/zolotaya_morkov.png"
-      ]
+      ],
+      "id": "c0d6886f-ec3b-411b-803d-1e3fa19f7654",
+      "image": "assets/items/zolotaya_morkov.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Золотой блок",
       "images": [
         "assets/items/zolotoy_blok.png"
-      ]
+      ],
+      "id": "3145ff82-8554-4f9d-b4a6-7f938009490a",
+      "image": "assets/items/zolotoy_blok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Золотой слиток",
       "images": [
         "assets/items/zolotoy_slitok.png"
-      ]
+      ],
+      "id": "1406d8fa-01ea-455b-9217-5db52e4b4593",
+      "image": "assets/items/zolotoy_slitok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Изумруд",
       "images": [
         "assets/items/izumrud.png"
-      ]
+      ],
+      "id": "8241555d-8551-4d2e-8ded-ce3fb10d1427",
+      "image": "assets/items/izumrud.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Изумрудовый блок",
       "images": [
         "assets/items/izumrudovyy_blok.png"
-      ]
+      ],
+      "id": "7d6e4264-29c8-43ad-8f02-ccb25fbaae87",
+      "image": "assets/items/izumrudovyy_blok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Кактус",
       "images": [
         "assets/items/kaktus.png"
-      ]
+      ],
+      "id": "401c2f7a-da4b-43bd-b836-f70089f40b95",
+      "image": "assets/items/kaktus.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Камень",
       "images": [
         "assets/items/kamen.png"
-      ]
+      ],
+      "id": "ed82c761-cbf9-4551-8bb2-6276cd5c74c0",
+      "image": "assets/items/kamen.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Капуста",
       "images": [
         "assets/items/kapusta.png"
-      ]
+      ],
+      "id": "9dee7959-f905-43f2-a5a8-fa0938594a61",
+      "image": "assets/items/kapusta.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Картофель",
       "images": [
         "assets/items/kartofel.png"
-      ]
+      ],
+      "id": "44500afd-fb68-4049-8cf2-4dd103a2cc0d",
+      "image": "assets/items/kartofel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Козий мех",
       "images": [
         "assets/items/koziy_meh.png"
-      ]
+      ],
+      "id": "393e8f5b-7194-41c8-a5eb-e412fb312ec2",
+      "image": "assets/items/koziy_meh.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Колотый глубинный сланец",
       "images": [
         "assets/items/kolotyy_glubinnyy_slanets.png"
-      ]
+      ],
+      "id": "a5db4072-ee3e-4f6f-bf6e-3a6f11fd9b97",
+      "image": "assets/items/kolotyy_glubinnyy_slanets.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Комок глины",
       "images": [
         "assets/items/komok_gliny.png"
-      ]
+      ],
+      "id": "4626155d-9dd4-4aeb-a0f0-853ca0605dea",
+      "image": "assets/items/komok_gliny.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Коричневая шерсть",
       "images": [
         "assets/items/korichnevaya_sherst.png"
-      ]
+      ],
+      "id": "ed88adc1-6b28-4da5-a2f1-3008a8e82363",
+      "image": "assets/items/korichnevaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Костная мука",
       "images": [
         "assets/items/kostnaya_muka.png"
-      ]
+      ],
+      "id": "bb21ff74-b321-4cee-94e5-b824bfab34be",
+      "image": "assets/items/kostnaya_muka.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Костный блок",
       "images": [
         "assets/items/kostnyy_blok.png"
-      ]
+      ],
+      "id": "e9e302cb-3e0c-4616-a0fb-9cf2215f0718",
+      "image": "assets/items/kostnyy_blok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Кость",
       "images": [
         "assets/items/kost.png"
-      ]
+      ],
+      "id": "7e499271-de93-4ec5-9c6f-c37f9149cde7",
+      "image": "assets/items/kost.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Красная нить",
       "images": [
         "assets/items/krasnaya_nit.png"
-      ]
+      ],
+      "id": "4f545389-9683-415d-a43a-773d0b5c7b0b",
+      "image": "assets/items/krasnaya_nit.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Красный краситель",
       "images": [
         "assets/items/krasnyy_krasitel.png"
-      ]
+      ],
+      "id": "6dbaad34-cf19-45df-b08f-69df4c5a3f1e",
+      "image": "assets/items/krasnyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Кремень",
       "images": [
         "assets/items/kremen.png"
-      ]
+      ],
+      "id": "93d1850c-ba69-46c9-8944-7e72949551d3",
+      "image": "assets/items/kremen.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Кроличья лапка",
       "images": [
         "assets/items/krolichya_lapka.png"
-      ]
+      ],
+      "id": "1d4b4f4b-ff2d-4759-b43c-9120943d7980",
+      "image": "assets/items/krolichya_lapka.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Кроличья шкура",
       "images": [
         "assets/items/krolichya_shkura.png"
-      ]
+      ],
+      "id": "c4608f03-6d69-438b-8d07-bae4045347ed",
+      "image": "assets/items/krolichya_shkura.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Кусочек меди",
       "images": [
         "assets/items/kusochek_medi.png"
-      ]
+      ],
+      "id": "b1a89b38-75bd-4445-9888-23bf9d9ae0fa",
+      "image": "assets/items/kusochek_medi.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Лазурит",
       "images": [
         "assets/items/lazurit.png"
-      ]
+      ],
+      "id": "f2d2f7da-1b12-4170-9759-9cfe6e444564",
+      "image": "assets/items/lazurit.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Лазуритовый блок",
       "images": [
         "assets/items/lazuritovyy_blok.png"
-      ]
+      ],
+      "id": "ab35f2ee-a8cb-4f10-84c1-d40b7aae14aa",
+      "image": "assets/items/lazuritovyy_blok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Лаймовая шерсть",
       "images": [
         "assets/items/laymovaya_sherst.png"
-      ]
+      ],
+      "id": "4759fd1c-8e8f-43d5-befa-f8d46680971c",
+      "image": "assets/items/laymovaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Лаймовый краситель",
       "images": [
         "assets/items/laymovyy_krasitel.png"
-      ]
+      ],
+      "id": "9a1ab46d-0168-435f-8a4d-6d78bcfe7d56",
+      "image": "assets/items/laymovyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ламинария",
       "images": [
         "assets/items/laminariya.png"
-      ]
+      ],
+      "id": "e6674a54-7283-448c-88f5-602afb008cf7",
+      "image": "assets/items/laminariya.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Лист капусты",
       "images": [
         "assets/items/list_kapusty.png"
-      ]
+      ],
+      "id": "a4a59045-c3cb-4e57-83da-1c4e2358dfa0",
+      "image": "assets/items/list_kapusty.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ломтик ролла из ламинарии",
       "images": [
         "assets/items/lomtik_rolla_iz_laminarii.png"
-      ]
+      ],
+      "id": "cca6d52c-693d-4fee-a767-f819aa7721c5",
+      "image": "assets/items/lomtik_rolla_iz_laminarii.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ломтик тыквы",
       "images": [
         "assets/items/lomtik_tykvy.png"
-      ]
+      ],
+      "id": "5e86d6fe-83f7-4f07-92ea-5da4604b3cd7",
+      "image": "assets/items/lomtik_tykvy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Лук",
       "images": [
         "assets/items/luk.png"
-      ]
+      ],
+      "id": "58732e03-e3a4-4d3c-b79a-0035e336411f",
+      "image": "assets/items/luk.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Мангровое дерево",
       "images": [
         "assets/items/mangrovoe_derevo.png"
-      ]
+      ],
+      "id": "b4ce6774-6991-421a-b331-2514ee185d25",
+      "image": "assets/items/mangrovoe_derevo.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Медный блок",
       "images": [
         "assets/items/mednyy_blok.png"
-      ]
+      ],
+      "id": "884fad40-957b-4a6f-af22-073165705ba8",
+      "image": "assets/items/mednyy_blok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Мешок риса",
       "images": [
         "assets/items/meshok_risa.png"
-      ]
+      ],
+      "id": "b9d8eaf6-60cd-408e-86f7-78ef8750e13e",
+      "image": "assets/items/meshok_risa.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Мешок с семенами",
       "images": [
         "assets/items/meshok_s_semenami.png"
-      ]
+      ],
+      "id": "3b583794-ed36-4f3a-ad59-7267f17f0fc7",
+      "image": "assets/items/meshok_s_semenami.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Мешок с хлебом",
       "images": [
         "assets/items/meshok_s_hlebom.png"
-      ]
+      ],
+      "id": "572f0858-4cb3-4d1f-8448-b7fa76f59ac3",
+      "image": "assets/items/meshok_s_hlebom.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Морковь",
       "images": [
         "assets/items/morkov.png"
-      ]
+      ],
+      "id": "f11506d2-784d-464f-8c21-093643e5ec13",
+      "image": "assets/items/morkov.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Мрачный кактус",
       "images": [
         "assets/items/mrachnyy_kaktus.png"
-      ]
+      ],
+      "id": "c7401efe-3b97-435b-adce-3dbe43efa726",
+      "image": "assets/items/mrachnyy_kaktus.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Мшистый флюорит",
       "images": [
         "assets/items/mshistyy_flyuorit.png"
-      ]
+      ],
+      "id": "411f9382-8a70-4fc3-a66b-cdd8cac117c6",
+      "image": "assets/items/mshistyy_flyuorit.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Незерская золотая руда",
       "images": [
         "assets/items/nezerskaya_zolotaya_ruda.png"
-      ]
+      ],
+      "id": "ee4a40c1-7b35-4058-96a8-85f5ebfdf721",
+      "image": "assets/items/nezerskaya_zolotaya_ruda.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Незерский кварц",
       "images": [
         "assets/items/nezerskiy_kvarts.png"
-      ]
+      ],
+      "id": "4b03e492-5da9-48cd-98fa-acfb9bc24170",
+      "image": "assets/items/nezerskiy_kvarts.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Нить",
       "images": [
         "assets/items/nit.png"
-      ]
+      ],
+      "id": "1df5f520-b97f-4e50-b1cf-5f29437b5e65",
+      "image": "assets/items/nit.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Овощная лапша",
       "images": [
         "assets/items/ovoschnaya_lapsha.png"
-      ]
+      ],
+      "id": "108e95e1-34be-4a12-a586-d3aa4514f270",
+      "image": "assets/items/ovoschnaya_lapsha.png",
+      "stack_size": 16,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Оленья кожа",
       "images": [
         "assets/items/olenya_kozha.png"
-      ]
+      ],
+      "id": "ead1f215-c833-43b6-a0ed-1c6310d94c91",
+      "image": "assets/items/olenya_kozha.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Оранжевая шерсть",
       "images": [
         "assets/items/oranzhevaya_sherst.png"
-      ]
+      ],
+      "id": "b7fd4cbb-184d-4cff-a99f-9ead1ea5f3a7",
+      "image": "assets/items/oranzhevaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Оранжевый краситель",
       "images": [
         "assets/items/oranzhevyy_krasitel.png"
-      ]
+      ],
+      "id": "6cea24fd-b1f1-4e4a-9084-338594627060",
+      "image": "assets/items/oranzhevyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Органический компост",
       "images": [
         "assets/items/organicheskiy_kompost.png"
-      ]
+      ],
+      "id": "b103dfb5-a569-4d1b-b7aa-5e591a5abecc",
+      "image": "assets/items/organicheskiy_kompost.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Осколок аметиста",
       "images": [
         "assets/items/oskolok_ametista.png"
-      ]
+      ],
+      "id": "e185d984-6c44-4a0a-b0b2-51610892a5c2",
+      "image": "assets/items/oskolok_ametista.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Паутина",
       "images": [
         "assets/items/pautina.png"
-      ]
+      ],
+      "id": "61ffbf44-9794-49c2-843c-e77c23b47daa",
+      "image": "assets/items/pautina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Паучий глаз",
       "images": [
         "assets/items/pauchiy_glaz.png"
-      ]
+      ],
+      "id": "16cfe62e-f9fc-4931-b891-008d2b7b227d",
+      "image": "assets/items/pauchiy_glaz.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Перо",
       "images": [
         "assets/items/pero.png"
-      ]
+      ],
+      "id": "7cb5e230-f576-481f-ab41-d255e5eaeab0",
+      "image": "assets/items/pero.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Песок",
       "images": [
         "assets/items/pesok.png"
-      ]
+      ],
+      "id": "0b404827-073e-4e19-be87-9a3ab58b513c",
+      "image": "assets/items/pesok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Печенье из сладких ягод",
       "images": [
         "assets/items/pechene_iz_sladkih_yagod.png"
-      ]
+      ],
+      "id": "156b604e-2bdf-4ebc-ae89-5096407dead9",
+      "image": "assets/items/pechene_iz_sladkih_yagod.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Плодородная почва",
       "images": [
         "assets/items/plodorodnaya_pochva.png"
-      ]
+      ],
+      "id": "81bf641b-dc08-4efd-b76e-38ec10e5b368",
+      "image": "assets/items/plodorodnaya_pochva.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Подмостки",
       "images": [
         "assets/items/podmostki.png"
-      ]
+      ],
+      "id": "c5adfd8e-e334-4871-8158-43f28a0c76bb",
+      "image": "assets/items/podmostki.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Полоска кожи",
       "images": [
         "assets/items/poloska_kozhi.png"
-      ]
+      ],
+      "id": "d478e31a-d3a4-4c41-8816-a275cd71bab7",
+      "image": "assets/items/poloska_kozhi.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Порох",
       "images": [
         "assets/items/poroh.png"
-      ]
+      ],
+      "id": "bf35eed8-7719-4b54-b6c1-dac27a360703",
+      "image": "assets/items/poroh.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Приготовленная водоплавающая дичь",
       "images": [
         "assets/items/prigotovlennaya_vodoplavayuschaya_dich.png"
-      ]
+      ],
+      "id": "4837967a-f10c-4b3b-ad74-ab9487034b3c",
+      "image": "assets/items/prigotovlennaya_vodoplavayuschaya_dich.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Приготовленная индейка",
       "images": [
         "assets/items/prigotovlennaya_indeyka.png"
-      ]
+      ],
+      "id": "b415b254-3540-47cb-ae7e-0ca923f02ecc",
+      "image": "assets/items/prigotovlennaya_indeyka.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Приготовленная оленина",
       "images": [
         "assets/items/prigotovlennaya_olenina.png"
-      ]
+      ],
+      "id": "d90ca7fd-fa38-47a8-aac1-b7a9ff00345e",
+      "image": "assets/items/prigotovlennaya_olenina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Пурпурная шерсть",
       "images": [
         "assets/items/purpurnaya_sherst.png"
-      ]
+      ],
+      "id": "d84a74a1-776f-4fdc-9ec1-a2b01c3cec39",
+      "image": "assets/items/purpurnaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Пурпурный краситель",
       "images": [
         "assets/items/purpurnyy_krasitel.png"
-      ]
+      ],
+      "id": "cbf89b65-b5c3-4a15-9453-02670caaa0c0",
+      "image": "assets/items/purpurnyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Пшеница",
       "images": [
         "assets/items/pshenitsa.png"
-      ]
+      ],
+      "id": "b52ce9e4-fa0a-4af3-98c1-73cfef3365d0",
+      "image": "assets/items/pshenitsa.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Пшеничное тесто",
       "images": [
         "assets/items/pshenichnoe_testo.png"
-      ]
+      ],
+      "id": "c7e757c7-783a-4038-a04a-e62ab9e51108",
+      "image": "assets/items/pshenichnoe_testo.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Редстоуновая пыль",
       "images": [
         "assets/items/redstounovaya_pyl.png"
-      ]
+      ],
+      "id": "b167cefb-4289-4eae-badd-2d4e76c0fec9",
+      "image": "assets/items/redstounovaya_pyl.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Редстоуновый блок",
       "images": [
         "assets/items/redstounovyy_blok.png"
-      ]
+      ],
+      "id": "aa2616b7-e05b-431e-b03b-a27915b886c4",
+      "image": "assets/items/redstounovyy_blok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Рис",
       "images": [
         "assets/items/ris.png"
-      ]
+      ],
+      "id": "6913e1d2-5341-46f7-b8bf-1533f097a9a0",
+      "image": "assets/items/ris.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Рис с грибами",
       "images": [
         "assets/items/ris_s_gribami.png"
-      ]
+      ],
+      "id": "9331abe9-e491-4f2f-b3a5-8fc96b59b8c1",
+      "image": "assets/items/ris_s_gribami.png",
+      "stack_size": 16,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Розовая шерсть",
       "images": [
         "assets/items/rozovaya_sherst.png"
-      ]
+      ],
+      "id": "fc003f18-60dc-4144-8de1-3c547c08607e",
+      "image": "assets/items/rozovaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Розовый краситель",
       "images": [
         "assets/items/rozovyy_krasitel.png"
-      ]
+      ],
+      "id": "62bd0d48-0bc4-45b1-ac97-e1b4912c410f",
+      "image": "assets/items/rozovyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Росток души",
       "images": [
         "assets/items/rostok_dushi.png"
-      ]
+      ],
+      "id": "fb45975e-cd55-4fdd-9664-d3498bab4813",
+      "image": "assets/items/rostok_dushi.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Рудная медь",
       "images": [
         "assets/items/rudnaya_med.png"
-      ]
+      ],
+      "id": "f1936599-873d-404a-b313-52be06bd2c30",
+      "image": "assets/items/rudnaya_med.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Рудное железо",
       "images": [
         "assets/items/rudnoe_zhelezo.png"
-      ]
+      ],
+      "id": "00f17433-3cc4-4a8b-a6c6-75e924527cda",
+      "image": "assets/items/rudnoe_zhelezo.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Рудное золото",
       "images": [
         "assets/items/rudnoe_zoloto.png"
-      ]
+      ],
+      "id": "1a21fea9-cc22-4ba6-815b-f9a9df16f14f",
+      "image": "assets/items/rudnoe_zoloto.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Светло-серая шерсть",
       "images": [
         "assets/items/svetlo_seraya_sherst.png"
-      ]
+      ],
+      "id": "bdfb3ead-81b9-4ded-88c3-c85aea98372c",
+      "image": "assets/items/svetlo_seraya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Светло-серый краситель",
       "images": [
         "assets/items/svetlo_seryy_krasitel.png"
-      ]
+      ],
+      "id": "e0602cec-d012-4223-8bab-6193c6b17f99",
+      "image": "assets/items/svetlo_seryy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Светящиеся ягоды",
       "images": [
         "assets/items/svetyaschiesya_yagody.png"
-      ]
+      ],
+      "id": "d8a36061-48e5-47b3-9a86-31f1131377de",
+      "image": "assets/items/svetyaschiesya_yagody.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Светящийся чернильный мешок",
       "images": [
         "assets/items/svetyaschiysya_chernilnyy_meshok.png"
-      ]
+      ],
+      "id": "a423c696-d04b-48cf-9785-296e53b03b9a",
+      "image": "assets/items/svetyaschiysya_chernilnyy_meshok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Свёкла",
       "images": [
         "assets/items/svyokla.png"
-      ]
+      ],
+      "id": "a8680df2-602e-4d0b-95fb-1529d10268b0",
+      "image": "assets/items/svyokla.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Сгусток слизи",
       "images": [
         "assets/items/sgustok_slizi.png"
-      ]
+      ],
+      "id": "03ae74a3-7fce-4e34-afcd-469feb32fc06",
+      "image": "assets/items/sgustok_slizi.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Семена капусты",
       "images": [
         "assets/items/semena_kapusty.png"
-      ]
+      ],
+      "id": "7fac21b7-98cb-40f1-84e8-f475cb476b6a",
+      "image": "assets/items/semena_kapusty.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Семена пшеницы",
       "images": [
         "assets/items/semena_pshenitsy.png"
-      ]
+      ],
+      "id": "6edfc14b-8374-493f-af31-c9d932f2d7c5",
+      "image": "assets/items/semena_pshenitsy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Семена свеклы",
       "images": [
         "assets/items/semena_svekly.png"
-      ]
+      ],
+      "id": "7bf8bd4a-66aa-40c3-aa03-cd9aec1220e7",
+      "image": "assets/items/semena_svekly.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Семена тыквы",
       "images": [
         "assets/items/semena_tykvy.png"
-      ]
+      ],
+      "id": "b6c7fdca-792d-4606-b24e-1ac844b9223d",
+      "image": "assets/items/semena_tykvy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Серый краситель",
       "images": [
         "assets/items/seryy_krasitel.png"
-      ]
+      ],
+      "id": "0e5e9587-3805-4fa2-9a0b-6eeb83d0677c",
+      "image": "assets/items/seryy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Синий краситель",
       "images": [
         "assets/items/siniy_krasitel.png"
-      ]
+      ],
+      "id": "24bd874c-2c67-48f8-acc6-bd729921be7b",
+      "image": "assets/items/siniy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Синяя шерсть",
       "images": [
         "assets/items/sinyaya_sherst.png"
-      ]
+      ],
+      "id": "2260ef35-2fbf-4c64-a67c-ffc52a7ef484",
+      "image": "assets/items/sinyaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Слиток меди",
       "images": [
         "assets/items/slitok_medi.png"
-      ]
+      ],
+      "id": "b184a40f-282b-4d4a-a38b-d4a8bbcfe25f",
+      "image": "assets/items/slitok_medi.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Сноп сена",
       "images": [
         "assets/items/snop_sena.png"
-      ]
+      ],
+      "id": "73e4654a-9cb9-4d92-a070-67579f458a79",
+      "image": "assets/items/snop_sena.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Солома",
       "images": [
         "assets/items/soloma.png"
-      ]
+      ],
+      "id": "a8c168cd-c0dc-467c-9f36-d94128212038",
+      "image": "assets/items/soloma.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Стейк",
       "images": [
         "assets/items/steyk.png"
-      ]
+      ],
+      "id": "77e881b3-4986-458a-b679-55502634ec41",
+      "image": "assets/items/steyk.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Стекло",
       "images": [
         "assets/items/steklo.png"
-      ]
+      ],
+      "id": "0c70eef2-c311-4e31-b02b-eadadef48114",
+      "image": "assets/items/steklo.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Сумеречный дуб",
       "images": [
         "assets/items/sumerechnyy_dub.png"
-      ]
+      ],
+      "id": "914012e5-a260-473e-bc91-f700ff942b88",
+      "image": "assets/items/sumerechnyy_dub.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Сырая водоплавающая дичь",
       "images": [
         "assets/items/syraya_vodoplavayuschaya_dich.png"
-      ]
+      ],
+      "id": "2976ac14-354f-470b-93d2-3c8a87ef3e68",
+      "image": "assets/items/syraya_vodoplavayuschaya_dich.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Сырая индейка",
       "images": [
         "assets/items/syraya_indeyka.png"
-      ]
+      ],
+      "id": "dce6088c-0aaa-4df7-a88c-fae787fa2f44",
+      "image": "assets/items/syraya_indeyka.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Сырая крольчатина",
       "images": [
         "assets/items/syraya_krolchatina.png"
-      ]
+      ],
+      "id": "dd42a294-465c-4612-b002-b9f89dfba387",
+      "image": "assets/items/syraya_krolchatina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Сырая оленина",
       "images": [
         "assets/items/syraya_olenina.png",
         "assets/items/syraya_olenina_2.png"
-      ]
+      ],
+      "id": "4687fe2c-ff3f-44a8-a2ee-93cc3183ec80",
+      "image": "assets/items/syraya_olenina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Сырая свинина",
       "images": [
         "assets/items/syraya_svinina.png"
-      ]
+      ],
+      "id": "5ebcdb5f-79f7-4b84-8633-69435f035378",
+      "image": "assets/items/syraya_svinina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Томат",
       "images": [
         "assets/items/tomat.png"
-      ]
+      ],
+      "id": "073eace6-534f-4b86-b3d9-7de90e10a2d2",
+      "image": "assets/items/tomat.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Тростник",
       "images": [
         "assets/items/trostnik.png"
-      ]
+      ],
+      "id": "c6d90026-783b-4319-8617-4036678c1325",
+      "image": "assets/items/trostnik.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Тыква",
       "images": [
         "assets/items/tykva.png"
-      ]
+      ],
+      "id": "3b24a418-92b2-40c7-bb65-f2e04236fec5",
+      "image": "assets/items/tykva.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Тюк соломы",
       "images": [
         "assets/items/tyuk_solomy.png"
-      ]
+      ],
+      "id": "6dc0c282-0422-4c01-84e8-78c7ef0088eb",
+      "image": "assets/items/tyuk_solomy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Уголь",
       "images": [
         "assets/items/ugol.png"
-      ]
+      ],
+      "id": "99e4d758-14c2-4066-8ae3-ad5989857948",
+      "image": "assets/items/ugol.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Угольный блок",
       "images": [
         "assets/items/ugolnyy_blok.png"
-      ]
+      ],
+      "id": "257ee35c-23f6-42bc-b895-49a36194fbdd",
+      "image": "assets/items/ugolnyy_blok.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Фиолетовый краситель",
       "images": [
         "assets/items/fioletovyy_krasitel.png"
-      ]
+      ],
+      "id": "dbe93b47-bab0-4f6e-af50-b47fabc26a7c",
+      "image": "assets/items/fioletovyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Хинкали",
       "images": [
         "assets/items/hinkali.png"
-      ]
+      ],
+      "id": "60ed622d-9cc9-4737-a9c8-5ce2e72c0b3f",
+      "image": "assets/items/hinkali.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Хлеб",
       "images": [
         "assets/items/hleb.png"
-      ]
+      ],
+      "id": "6d1351b1-fe7f-40b4-a4fe-806550b1f672",
+      "image": "assets/items/hleb.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Холст",
       "images": [
         "assets/items/holst.png"
-      ]
+      ],
+      "id": "302602f1-93d3-40fb-a39e-9419d9b89992",
+      "image": "assets/items/holst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Чёрная шерсть",
       "images": [
         "assets/items/chyornaya_sherst.png"
-      ]
+      ],
+      "id": "63f1481a-1388-4372-b5a2-1335c089386b",
+      "image": "assets/items/chyornaya_sherst.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Чёрный краситель",
       "images": [
         "assets/items/chyornyy_krasitel.png"
-      ]
+      ],
+      "id": "3b54f597-ce7a-493f-9089-b09c2efc8d01",
+      "image": "assets/items/chyornyy_krasitel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Шкура хоглина",
       "images": [
         "assets/items/shkura_hoglina.png"
-      ]
+      ],
+      "id": "e8c78dc2-3744-48c7-ad0c-c227354485a4",
+      "image": "assets/items/shkura_hoglina.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Эндер-жемчуг",
       "images": [
         "assets/items/ender_zhemchug.png"
-      ]
+      ],
+      "id": "78607bba-6791-4fb2-842f-19eab975649f",
+      "image": "assets/items/ender_zhemchug.png",
+      "stack_size": 16,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ягоды",
       "images": [
         "assets/items/yagody.png"
-      ]
+      ],
+      "id": "5c869485-d00e-4d7c-aef0-bb4c671841e0",
+      "image": "assets/items/yagody.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ядовитый картофель",
       "images": [
         "assets/items/yadovityy_kartofel.png"
-      ]
+      ],
+      "id": "a413677e-aa27-4f81-b0c5-09635b1adae9",
+      "image": "assets/items/yadovityy_kartofel.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Яйцо",
       "images": [
         "assets/items/yaytso.png"
-      ]
+      ],
+      "id": "b87ebe44-ac2a-4337-acb5-f8fbf60e456b",
+      "image": "assets/items/yaytso.png",
+      "stack_size": 16,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик моркови",
       "images": [
         "assets/items/yaschik_morkovi.png"
-      ]
+      ],
+      "id": "4efb4ca7-1e0c-4254-8fe7-bb1032942d75",
+      "image": "assets/items/yaschik_morkovi.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с золотой морковкой",
       "images": [
         "assets/items/yaschik_s_zolotoy_morkovkoy.png"
-      ]
+      ],
+      "id": "a934034a-36c5-436a-941f-f2e258454a17",
+      "image": "assets/items/yaschik_s_zolotoy_morkovkoy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с капустой",
       "images": [
         "assets/items/yaschik_s_kapustoy.png"
-      ]
+      ],
+      "id": "d0f6d861-2e20-4b95-b3e1-9a8c1ce9f520",
+      "image": "assets/items/yaschik_s_kapustoy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с картофелем",
       "images": [
         "assets/items/yaschik_s_kartofelem.png"
-      ]
+      ],
+      "id": "b7a66346-736f-40b9-8676-3db78550d47a",
+      "image": "assets/items/yaschik_s_kartofelem.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с коричневыми грибами",
       "images": [
         "assets/items/yaschik_s_korichnevymi_gribami.png"
-      ]
+      ],
+      "id": "732133cf-237d-47dd-809f-af8637b74554",
+      "image": "assets/items/yaschik_s_korichnevymi_gribami.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с красными грибами",
       "images": [
         "assets/items/yaschik_s_krasnymi_gribami.png"
-      ]
+      ],
+      "id": "3ad07d63-1d43-4455-ac21-719b04ba047e",
+      "image": "assets/items/yaschik_s_krasnymi_gribami.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с ломтиками тыквы",
       "images": [
         "assets/items/yaschik_s_lomtikami_tykvy.png"
-      ]
+      ],
+      "id": "f211e39c-7592-44b7-978b-db897e1c7718",
+      "image": "assets/items/yaschik_s_lomtikami_tykvy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с луком",
       "images": [
         "assets/items/yaschik_s_lukom.png"
-      ]
+      ],
+      "id": "bb44e813-ac0a-4c0a-a719-0d463fafe51a",
+      "image": "assets/items/yaschik_s_lukom.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с томатами",
       "images": [
         "assets/items/yaschik_s_tomatami.png"
-      ]
+      ],
+      "id": "2353c884-ca25-49dc-bb44-38782eda4f0f",
+      "image": "assets/items/yaschik_s_tomatami.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик с яйцами",
       "images": [
         "assets/items/yaschik_s_yaytsami.png"
-      ]
+      ],
+      "id": "c01375c2-956d-4c5b-8aa6-51e44d047940",
+      "image": "assets/items/yaschik_s_yaytsami.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик со свёклой",
       "images": [
         "assets/items/yaschik_so_svyokloy.png"
-      ]
+      ],
+      "id": "35e82046-60cf-48a3-a7b9-ad153916071e",
+      "image": "assets/items/yaschik_so_svyokloy.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     },
     {
       "name": "Ящик со сладкими ягодами",
       "images": [
         "assets/items/yaschik_so_sladkimi_yagodami.png"
-      ]
+      ],
+      "id": "1d8945f8-74a4-4a90-9318-25a85401bccf",
+      "image": "assets/items/yaschik_so_sladkimi_yagodami.png",
+      "stack_size": 64,
+      "aliases": [],
+      "enabled": true
     }
   ]
 }

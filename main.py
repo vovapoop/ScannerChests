@@ -233,9 +233,21 @@ PROFILES_DIR = os.path.join(BASE_DIR, "profiles")
 ACTIVE_PROFILE_FILE = os.path.join(PROFILES_DIR, "active_profile.txt")
 DEFAULT_PROFILE_NAME = "default"
 
+# Переменная окружения для временного выбора профиля (например, при
+# тестировании или запуске ярлыка с конкретным профилем). Если она
+# задана — файл profiles/active_profile.txt игнорируется.
+PROFILE_ENV_VAR = "CHEST_PROFILE"
+
 
 def _read_active_profile_name():
     """Читает имя активного профиля (или None)."""
+    override = os.environ.get(PROFILE_ENV_VAR, "").strip()
+
+    if override:
+        sanitized = sanitize_profile_name(override)
+        if sanitized:
+            return sanitized
+
     try:
         with open(ACTIVE_PROFILE_FILE, "r", encoding="utf-8") as profile_file:
             name = profile_file.read().strip()
@@ -4079,9 +4091,16 @@ class ScannerGUI:
                 creation_flags = subprocess.DETACHED_PROCESS | \
                     subprocess.CREATE_NEW_PROCESS_GROUP
 
+            # Новый процесс обязан унаследовать чистое окружение: иначе
+            # он получит переменную CHEST_PROFILE от текущего запуска и
+            # проигнорирует только что сохранённый profiles/active_profile.txt.
+            child_env = os.environ.copy()
+            child_env.pop(PROFILE_ENV_VAR, None)
+
             subprocess.Popen(
                 [python_executable, script],
                 cwd=BASE_DIR,
+                env=child_env,
                 creationflags=creation_flags,
                 close_fds=True,
             )

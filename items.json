@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "items": [
     {
       "name": "Bear meat",
@@ -10,7 +10,9 @@
       "image": "assets/items/bear_meat.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "mob_drops",
+      "tags": []
     },
     {
       "name": "Bloom berries",
@@ -21,7 +23,9 @@
       "image": "assets/items/bloom_berries.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Аметистовый блок",
@@ -32,7 +36,9 @@
       "image": "assets/items/ametistovyy_blok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Андезит",
@@ -43,7 +49,9 @@
       "image": "assets/items/andezit.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Апатит",
@@ -54,7 +62,9 @@
       "image": "assets/items/apatit.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Арбуз",
@@ -65,7 +75,9 @@
       "image": "assets/items/arbuz.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Багровая ножка",
@@ -76,7 +88,9 @@
       "image": "assets/items/bagrovaya_nozhka.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бамбук",
@@ -87,7 +101,9 @@
       "image": "assets/items/bambuk.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Белая шерсть",
@@ -98,7 +114,9 @@
       "image": "assets/items/belaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Белый краситель",
@@ -109,7 +127,9 @@
       "image": "assets/items/belyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бирюзовый краситель",
@@ -120,7 +140,9 @@
       "image": "assets/items/biryuzovyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Блок рудного железа",
@@ -131,7 +153,9 @@
       "image": "assets/items/blok_rudnogo_zheleza.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Блок рудного золота",
@@ -142,7 +166,9 @@
       "image": "assets/items/blok_rudnogo_zolota.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Блок рудной меди",
@@ -153,7 +179,9 @@
       "image": "assets/items/blok_rudnoy_medi.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бревно белого дуба",
@@ -164,7 +192,9 @@
       "image": "assets/items/brevno_belogo_duba.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бревно джунглевого дерева",
@@ -175,7 +205,9 @@
       "image": "assets/items/brevno_dzhunglevogo_dereva.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бревно каштана",
@@ -186,7 +218,9 @@
       "image": "assets/items/brevno_kashtana.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бревно соснового дерева",
@@ -197,7 +231,9 @@
       "image": "assets/items/brevno_sosnovogo_dereva.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бревно сумеречного дуба",
@@ -208,7 +244,9 @@
       "image": "assets/items/brevno_sumerechnogo_duba.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бревно тёмного дерева",
@@ -219,7 +257,9 @@
       "image": "assets/items/brevno_tyomnogo_dereva.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бревно тёмного дуба",
@@ -230,7 +270,9 @@
       "image": "assets/items/brevno_tyomnogo_duba.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Булыжник",
@@ -241,7 +283,9 @@
       "image": "assets/items/bulyzhnik.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Бутылочка мёда",
@@ -252,7 +296,9 @@
       "image": "assets/items/butylochka_myoda.png",
       "stack_size": 16,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Вишнёвая древесина",
@@ -263,7 +309,9 @@
       "image": "assets/items/vishnyovaya_drevesina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Глина",
@@ -274,7 +322,9 @@
       "image": "assets/items/glina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Глубинный сланец",
@@ -285,7 +335,9 @@
       "image": "assets/items/glubinnyy_slanets.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Гнилая плоть",
@@ -296,7 +348,9 @@
       "image": "assets/items/gnilaya_plot.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Голубой краситель",
@@ -307,7 +361,9 @@
       "image": "assets/items/goluboy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Голубцы",
@@ -318,7 +374,9 @@
       "image": "assets/items/golubtsy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Гравий",
@@ -329,7 +387,9 @@
       "image": "assets/items/graviy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Гриб",
@@ -340,7 +400,9 @@
       "image": "assets/items/grib.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Диорит",
@@ -351,7 +413,9 @@
       "image": "assets/items/diorit.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Древесный уголь",
@@ -362,7 +426,9 @@
       "image": "assets/items/drevesnyy_ugol.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Дубовое бревно",
@@ -373,7 +439,9 @@
       "image": "assets/items/dubovoe_brevno.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Еловая древесина",
@@ -384,7 +452,9 @@
       "image": "assets/items/elovaya_drevesina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Еловое бревно",
@@ -395,7 +465,9 @@
       "image": "assets/items/elovoe_brevno.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Жареная баранина",
@@ -406,7 +478,9 @@
       "image": "assets/items/zharenaya_baranina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Жареная крольчатина",
@@ -417,7 +491,9 @@
       "image": "assets/items/zharenaya_krolchatina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Жареная курица",
@@ -428,7 +504,9 @@
       "image": "assets/items/zharenaya_kuritsa.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Жареная свинина",
@@ -439,7 +517,9 @@
       "image": "assets/items/zharenaya_svinina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Жареный рис",
@@ -450,7 +530,9 @@
       "image": "assets/items/zharenyy_ris.png",
       "stack_size": 16,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Железный слиток",
@@ -461,7 +543,9 @@
       "image": "assets/items/zheleznyy_slitok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Жир",
@@ -472,7 +556,9 @@
       "image": "assets/items/zhir.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Жёлтая шерсть",
@@ -483,7 +569,9 @@
       "image": "assets/items/zhyoltaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Запечённая тушеная треска",
@@ -494,7 +582,9 @@
       "image": "assets/items/zapechyonnaya_tushenaya_treska.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Зелёный краситель",
@@ -505,7 +595,9 @@
       "image": "assets/items/zelyonyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Земля",
@@ -516,7 +608,9 @@
       "image": "assets/items/zemlya.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Золотая морковь",
@@ -527,7 +621,9 @@
       "image": "assets/items/zolotaya_morkov.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Золотой блок",
@@ -538,7 +634,9 @@
       "image": "assets/items/zolotoy_blok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Золотой слиток",
@@ -549,7 +647,9 @@
       "image": "assets/items/zolotoy_slitok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Изумруд",
@@ -560,7 +660,9 @@
       "image": "assets/items/izumrud.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Изумрудовый блок",
@@ -571,7 +673,9 @@
       "image": "assets/items/izumrudovyy_blok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Кактус",
@@ -582,7 +686,9 @@
       "image": "assets/items/kaktus.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Камень",
@@ -593,7 +699,9 @@
       "image": "assets/items/kamen.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Капуста",
@@ -604,7 +712,9 @@
       "image": "assets/items/kapusta.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Картофель",
@@ -615,7 +725,9 @@
       "image": "assets/items/kartofel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Козий мех",
@@ -626,7 +738,9 @@
       "image": "assets/items/koziy_meh.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Колотый глубинный сланец",
@@ -637,7 +751,9 @@
       "image": "assets/items/kolotyy_glubinnyy_slanets.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Комок глины",
@@ -648,7 +764,9 @@
       "image": "assets/items/komok_gliny.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Коричневая шерсть",
@@ -659,7 +777,9 @@
       "image": "assets/items/korichnevaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Костная мука",
@@ -670,7 +790,9 @@
       "image": "assets/items/kostnaya_muka.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Костный блок",
@@ -681,7 +803,9 @@
       "image": "assets/items/kostnyy_blok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Кость",
@@ -692,7 +816,9 @@
       "image": "assets/items/kost.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Красная нить",
@@ -703,7 +829,9 @@
       "image": "assets/items/krasnaya_nit.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Красный краситель",
@@ -714,7 +842,9 @@
       "image": "assets/items/krasnyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Кремень",
@@ -725,7 +855,9 @@
       "image": "assets/items/kremen.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Кроличья лапка",
@@ -736,7 +868,9 @@
       "image": "assets/items/krolichya_lapka.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Кроличья шкура",
@@ -747,7 +881,9 @@
       "image": "assets/items/krolichya_shkura.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Кусочек меди",
@@ -758,7 +894,9 @@
       "image": "assets/items/kusochek_medi.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Лазурит",
@@ -769,7 +907,9 @@
       "image": "assets/items/lazurit.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Лазуритовый блок",
@@ -780,7 +920,9 @@
       "image": "assets/items/lazuritovyy_blok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Лаймовая шерсть",
@@ -791,7 +933,9 @@
       "image": "assets/items/laymovaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Лаймовый краситель",
@@ -802,7 +946,9 @@
       "image": "assets/items/laymovyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ламинария",
@@ -813,7 +959,9 @@
       "image": "assets/items/laminariya.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Лист капусты",
@@ -824,7 +972,9 @@
       "image": "assets/items/list_kapusty.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ломтик ролла из ламинарии",
@@ -835,7 +985,9 @@
       "image": "assets/items/lomtik_rolla_iz_laminarii.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ломтик тыквы",
@@ -846,7 +998,9 @@
       "image": "assets/items/lomtik_tykvy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Лук",
@@ -857,7 +1011,9 @@
       "image": "assets/items/luk.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Мангровое дерево",
@@ -868,7 +1024,9 @@
       "image": "assets/items/mangrovoe_derevo.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Медный блок",
@@ -879,7 +1037,9 @@
       "image": "assets/items/mednyy_blok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Мешок риса",
@@ -890,7 +1050,9 @@
       "image": "assets/items/meshok_risa.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Мешок с семенами",
@@ -901,7 +1063,9 @@
       "image": "assets/items/meshok_s_semenami.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Мешок с хлебом",
@@ -912,7 +1076,9 @@
       "image": "assets/items/meshok_s_hlebom.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Морковь",
@@ -923,7 +1089,9 @@
       "image": "assets/items/morkov.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Мрачный кактус",
@@ -934,7 +1102,9 @@
       "image": "assets/items/mrachnyy_kaktus.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Мшистый флюорит",
@@ -945,7 +1115,9 @@
       "image": "assets/items/mshistyy_flyuorit.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Незерская золотая руда",
@@ -956,7 +1128,9 @@
       "image": "assets/items/nezerskaya_zolotaya_ruda.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Незерский кварц",
@@ -967,7 +1141,9 @@
       "image": "assets/items/nezerskiy_kvarts.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Нить",
@@ -978,7 +1154,9 @@
       "image": "assets/items/nit.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Овощная лапша",
@@ -989,7 +1167,9 @@
       "image": "assets/items/ovoschnaya_lapsha.png",
       "stack_size": 16,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Оленья кожа",
@@ -1000,7 +1180,9 @@
       "image": "assets/items/olenya_kozha.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Оранжевая шерсть",
@@ -1011,7 +1193,9 @@
       "image": "assets/items/oranzhevaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Оранжевый краситель",
@@ -1022,7 +1206,9 @@
       "image": "assets/items/oranzhevyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Органический компост",
@@ -1033,7 +1219,9 @@
       "image": "assets/items/organicheskiy_kompost.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Осколок аметиста",
@@ -1044,7 +1232,9 @@
       "image": "assets/items/oskolok_ametista.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Паутина",
@@ -1055,7 +1245,9 @@
       "image": "assets/items/pautina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Паучий глаз",
@@ -1066,7 +1258,9 @@
       "image": "assets/items/pauchiy_glaz.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Перо",
@@ -1077,7 +1271,9 @@
       "image": "assets/items/pero.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Песок",
@@ -1088,7 +1284,9 @@
       "image": "assets/items/pesok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Печенье из сладких ягод",
@@ -1099,7 +1297,9 @@
       "image": "assets/items/pechene_iz_sladkih_yagod.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Плодородная почва",
@@ -1110,7 +1310,9 @@
       "image": "assets/items/plodorodnaya_pochva.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Подмостки",
@@ -1121,7 +1323,9 @@
       "image": "assets/items/podmostki.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Полоска кожи",
@@ -1132,7 +1336,9 @@
       "image": "assets/items/poloska_kozhi.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Порох",
@@ -1143,7 +1349,9 @@
       "image": "assets/items/poroh.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Приготовленная водоплавающая дичь",
@@ -1154,7 +1362,9 @@
       "image": "assets/items/prigotovlennaya_vodoplavayuschaya_dich.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Приготовленная индейка",
@@ -1165,7 +1375,9 @@
       "image": "assets/items/prigotovlennaya_indeyka.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Приготовленная оленина",
@@ -1176,7 +1388,9 @@
       "image": "assets/items/prigotovlennaya_olenina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Пурпурная шерсть",
@@ -1187,7 +1401,9 @@
       "image": "assets/items/purpurnaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Пурпурный краситель",
@@ -1198,7 +1414,9 @@
       "image": "assets/items/purpurnyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Пшеница",
@@ -1209,7 +1427,9 @@
       "image": "assets/items/pshenitsa.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Пшеничное тесто",
@@ -1220,7 +1440,9 @@
       "image": "assets/items/pshenichnoe_testo.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Редстоуновая пыль",
@@ -1231,7 +1453,9 @@
       "image": "assets/items/redstounovaya_pyl.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Редстоуновый блок",
@@ -1242,7 +1466,9 @@
       "image": "assets/items/redstounovyy_blok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Рис",
@@ -1253,7 +1479,9 @@
       "image": "assets/items/ris.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Рис с грибами",
@@ -1264,7 +1492,9 @@
       "image": "assets/items/ris_s_gribami.png",
       "stack_size": 16,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Розовая шерсть",
@@ -1275,7 +1505,9 @@
       "image": "assets/items/rozovaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Розовый краситель",
@@ -1286,7 +1518,9 @@
       "image": "assets/items/rozovyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Росток души",
@@ -1297,7 +1531,9 @@
       "image": "assets/items/rostok_dushi.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Рудная медь",
@@ -1308,7 +1544,9 @@
       "image": "assets/items/rudnaya_med.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Рудное железо",
@@ -1319,7 +1557,9 @@
       "image": "assets/items/rudnoe_zhelezo.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Рудное золото",
@@ -1330,7 +1570,9 @@
       "image": "assets/items/rudnoe_zoloto.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Светло-серая шерсть",
@@ -1341,7 +1583,9 @@
       "image": "assets/items/svetlo_seraya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Светло-серый краситель",
@@ -1352,7 +1596,9 @@
       "image": "assets/items/svetlo_seryy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Светящиеся ягоды",
@@ -1363,7 +1609,9 @@
       "image": "assets/items/svetyaschiesya_yagody.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Светящийся чернильный мешок",
@@ -1374,7 +1622,9 @@
       "image": "assets/items/svetyaschiysya_chernilnyy_meshok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Свёкла",
@@ -1385,7 +1635,9 @@
       "image": "assets/items/svyokla.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Сгусток слизи",
@@ -1396,7 +1648,9 @@
       "image": "assets/items/sgustok_slizi.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Семена капусты",
@@ -1407,7 +1661,9 @@
       "image": "assets/items/semena_kapusty.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Семена пшеницы",
@@ -1418,7 +1674,9 @@
       "image": "assets/items/semena_pshenitsy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Семена свеклы",
@@ -1429,7 +1687,9 @@
       "image": "assets/items/semena_svekly.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Семена тыквы",
@@ -1440,7 +1700,9 @@
       "image": "assets/items/semena_tykvy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Серый краситель",
@@ -1451,7 +1713,9 @@
       "image": "assets/items/seryy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Синий краситель",
@@ -1462,7 +1726,9 @@
       "image": "assets/items/siniy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Синяя шерсть",
@@ -1473,7 +1739,9 @@
       "image": "assets/items/sinyaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Слиток меди",
@@ -1484,7 +1752,9 @@
       "image": "assets/items/slitok_medi.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Сноп сена",
@@ -1495,7 +1765,9 @@
       "image": "assets/items/snop_sena.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Солома",
@@ -1506,7 +1778,9 @@
       "image": "assets/items/soloma.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Стейк",
@@ -1517,7 +1791,9 @@
       "image": "assets/items/steyk.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Стекло",
@@ -1528,7 +1804,9 @@
       "image": "assets/items/steklo.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Сумеречный дуб",
@@ -1539,7 +1817,9 @@
       "image": "assets/items/sumerechnyy_dub.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Сырая водоплавающая дичь",
@@ -1550,7 +1830,9 @@
       "image": "assets/items/syraya_vodoplavayuschaya_dich.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Сырая индейка",
@@ -1561,7 +1843,9 @@
       "image": "assets/items/syraya_indeyka.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Сырая крольчатина",
@@ -1572,7 +1856,9 @@
       "image": "assets/items/syraya_krolchatina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Сырая оленина",
@@ -1584,7 +1870,9 @@
       "image": "assets/items/syraya_olenina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Сырая свинина",
@@ -1595,7 +1883,9 @@
       "image": "assets/items/syraya_svinina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Томат",
@@ -1606,7 +1896,9 @@
       "image": "assets/items/tomat.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Тростник",
@@ -1617,7 +1909,9 @@
       "image": "assets/items/trostnik.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Тыква",
@@ -1628,7 +1922,9 @@
       "image": "assets/items/tykva.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Тюк соломы",
@@ -1639,7 +1935,9 @@
       "image": "assets/items/tyuk_solomy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Уголь",
@@ -1650,7 +1948,9 @@
       "image": "assets/items/ugol.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Угольный блок",
@@ -1661,7 +1961,9 @@
       "image": "assets/items/ugolnyy_blok.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Фиолетовый краситель",
@@ -1672,7 +1974,9 @@
       "image": "assets/items/fioletovyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Хинкали",
@@ -1683,7 +1987,9 @@
       "image": "assets/items/hinkali.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Хлеб",
@@ -1694,7 +2000,9 @@
       "image": "assets/items/hleb.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Холст",
@@ -1705,7 +2013,9 @@
       "image": "assets/items/holst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Чёрная шерсть",
@@ -1716,7 +2026,9 @@
       "image": "assets/items/chyornaya_sherst.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Чёрный краситель",
@@ -1727,7 +2039,9 @@
       "image": "assets/items/chyornyy_krasitel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Шкура хоглина",
@@ -1738,7 +2052,9 @@
       "image": "assets/items/shkura_hoglina.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Эндер-жемчуг",
@@ -1749,7 +2065,9 @@
       "image": "assets/items/ender_zhemchug.png",
       "stack_size": 16,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ягоды",
@@ -1760,7 +2078,9 @@
       "image": "assets/items/yagody.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ядовитый картофель",
@@ -1771,7 +2091,9 @@
       "image": "assets/items/yadovityy_kartofel.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Яйцо",
@@ -1782,7 +2104,9 @@
       "image": "assets/items/yaytso.png",
       "stack_size": 16,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик моркови",
@@ -1793,7 +2117,9 @@
       "image": "assets/items/yaschik_morkovi.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с золотой морковкой",
@@ -1804,7 +2130,9 @@
       "image": "assets/items/yaschik_s_zolotoy_morkovkoy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с капустой",
@@ -1815,7 +2143,9 @@
       "image": "assets/items/yaschik_s_kapustoy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с картофелем",
@@ -1826,7 +2156,9 @@
       "image": "assets/items/yaschik_s_kartofelem.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с коричневыми грибами",
@@ -1837,7 +2169,9 @@
       "image": "assets/items/yaschik_s_korichnevymi_gribami.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с красными грибами",
@@ -1848,7 +2182,9 @@
       "image": "assets/items/yaschik_s_krasnymi_gribami.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с ломтиками тыквы",
@@ -1859,7 +2195,9 @@
       "image": "assets/items/yaschik_s_lomtikami_tykvy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с луком",
@@ -1870,7 +2208,9 @@
       "image": "assets/items/yaschik_s_lukom.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с томатами",
@@ -1881,7 +2221,9 @@
       "image": "assets/items/yaschik_s_tomatami.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик с яйцами",
@@ -1892,7 +2234,9 @@
       "image": "assets/items/yaschik_s_yaytsami.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик со свёклой",
@@ -1903,7 +2247,9 @@
       "image": "assets/items/yaschik_so_svyokloy.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     },
     {
       "name": "Ящик со сладкими ягодами",
@@ -1914,7 +2260,9 @@
       "image": "assets/items/yaschik_so_sladkimi_yagodami.png",
       "stack_size": 64,
       "aliases": [],
-      "enabled": true
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     }
   ]
 }

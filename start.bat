@@ -5,7 +5,7 @@ cd /d "%~dp0"
 set "VENV_DIR=.venv"
 set "PYTHON_EXE=%VENV_DIR%\Scripts\python.exe"
 set "REQUIREMENTS=requirements.txt"
-set "DEPS_MARKER=%VENV_DIR%\.deps_installed_v2"
+set "DEPS_MARKER=%VENV_DIR%\.deps_installed_v3"
 
 REM Create .venv if missing
 if not exist "%PYTHON_EXE%" (
@@ -25,18 +25,11 @@ if not exist "%PYTHON_EXE%" (
     echo [OK] .venv created.
 )
 
-REM Install dependencies once
+REM Install dependencies once (single source: requirements.txt)
 if not exist "%DEPS_MARKER%" (
-    echo [INFO] Installing base dependencies...
+    echo [INFO] Installing dependencies...
 
     "%PYTHON_EXE%" -m pip install --upgrade pip --disable-pip-version-check
-
-    "%PYTHON_EXE%" -m pip install --no-cache-dir --disable-pip-version-check opencv-python numpy pyautogui keyboard requests Pillow tzdata
-    if errorlevel 1 (
-        echo [ERROR] Failed to install base dependencies.
-        pause
-        exit /b 1
-    )
 
     if exist "%REQUIREMENTS%" (
         echo [INFO] Installing requirements.txt...
@@ -52,9 +45,9 @@ if not exist "%DEPS_MARKER%" (
     echo [OK] Dependencies installed.
 )
 
-REM Launch hidden via VBS
-if exist "%~dp0launcher.vbs" (
-    wscript.exe //nologo "%~dp0launcher.vbs"
+REM Launch hidden without console window (pythonw)
+if exist "%VENV_DIR%\Scripts\pythonw.exe" (
+    start "" "%VENV_DIR%\Scripts\pythonw.exe" "%~dp0main.py"
 ) else (
     start "" /min "%PYTHON_EXE%" "%~dp0main.py"
 )

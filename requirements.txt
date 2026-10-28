@@ -1,7 +1,7 @@
-opencv-python
-numpy
-pyautogui
-keyboard
-requests
-Pillow
-tzdata
+opencv-python>=4.12
+numpy>=2.3
+mss>=9,<10
+keyboard>=0.13.5,<0.15
+requests>=2.31,<3
+Pillow>=12
+tzdata>=2024.1

@@ -3,7 +3,7 @@
 ; При изменении версии синхронно обновите version_info.txt и MyAppVersion.
 
 #define MyAppName "Chest Scanner"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.6.0"
 #define MyAppPublisher "Chest Scanner"
 #define MyAppExeName "ChestScanner.exe"
 #define MyAppId "{E9CB4F3D-5A61-4B2A-9E87-1C6D8F0A3B7C}"

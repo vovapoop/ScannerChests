@@ -1,34 +1,78 @@
 """ChestReader mixin: сканирование сундука и автоскан."""
 import hashlib
+import os
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from chest_scanner import paths, storage
 from chest_scanner.commons import load_json, save_json
 from chest_scanner.image_utils import resize_image
 from chest_scanner.logging_setup import logger, now_moscow
-from chest_scanner import paths
 from chest_scanner.screenshot import screenshot_bgr
+
 
 class WorkflowMixin:
     """Methods extracted from the original ChestReader."""
 
+    #: Максимальный размер results/chests.json до автоархивации в history.
+    MAX_RESULTS_FILE_BYTES = 2 * 1024 * 1024
+
+    def _maybe_archive_results(self):
+        """Переносит результаты из chests.json в history при превышении лимита."""
+        if not os.path.exists(paths.RESULTS_FILE):
+            return False
+        try:
+            if os.path.getsize(paths.RESULTS_FILE) < self.MAX_RESULTS_FILE_BYTES:
+                return False
+        except OSError:
+            return False
+        data = load_json(paths.RESULTS_FILE, {"chests": []})
+        chests = data.get("chests", []) if isinstance(data, dict) else []
+        if not chests:
+            return False
+        ts = now_moscow().strftime("%Y-%m-%d_%H-%M-%S")
+        hp = os.path.join(paths.HISTORY_DIR, f"report_{ts}.json")
+        c = 2
+        while os.path.exists(hp):
+            hp = os.path.join(paths.HISTORY_DIR, f"report_{ts}_{c}.json")
+            c += 1
+        save_json(hp, data)
+        save_json(paths.RESULTS_FILE, {"chests": []})
+        logger.info(f"История архивирована: {os.path.basename(hp)}")
+        return True
+
     def save_chest_result(self, cd):
+        self._maybe_archive_results()
         data = load_json(paths.RESULTS_FILE, {"chests": []})
         if not isinstance(data, dict):
             data = {"chests": []}
         data.setdefault("chests", []).append(cd)
         save_json(paths.RESULTS_FILE, data)
+        # Параллельная копия в SQLite для аналитики и резерва.
+        try:
+            storage.add_chest(paths.RESULTS_DB, cd)
+        except Exception as e:
+            logger.error(f"SQLite-запись результата: {e}")
 
     def scan_chest(self, force=False):
         if not self._scan_lock.acquire(blocking=False):
             return None
         try:
+            self.reset_scan_cancel()
+            # Причина, по которой скан не дал результата: None | "no_template"
+            # | "chest_closed" | "no_changes" | "cancelled". Используется GUI
+            # для понятных сообщений пользователю.
+            self.last_scan_reason = None
             self.play_scan_start_sound()
             time.sleep(0.15)
             screen = screenshot_bgr()
+            if self.chest_template is None:
+                self.last_scan_reason = "no_template"
+                return None
             if not self.chest_is_open(screen):
+                self.last_scan_reason = "chest_closed"
                 if self.chest_was_open:
                     self.chest_was_open = False
                     self.last_chest_hash = None
@@ -43,6 +87,7 @@ class WorkflowMixin:
             small = resize_image(chest_img, 100, 60)
             ch = hashlib.md5(small.tobytes()).hexdigest()
             if not force and ch == self.last_chest_hash:
+                self.last_scan_reason = "no_changes"
                 return None
             self.last_chest_hash = ch
 
@@ -52,15 +97,29 @@ class WorkflowMixin:
             # Параллельная обработка слотов
             max_workers = min(8, max(1, len(slots)))
             results = []
+            done = 0
+            total_slots = len(slots)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {executor.submit(self._process_slot, s): s for s in slots}
                 for future in as_completed(futures):
+                    if self._scan_cancel_event.is_set():
+                        self._scan_cancelled = True
+                        self.last_scan_reason = "cancelled"
+                        logger.info("Скан отменён пользователем")
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        return None
                     try:
                         r = future.result()
                         if r is not None:
                             results.append(r)
                     except Exception as e:
                         logger.error(f"Ошибка обработки слота: {e}", exc_info=True)
+                    done += 1
+                    if self.scan_progress_cb is not None:
+                        try:
+                            self.scan_progress_cb(done, total_slots)
+                        except Exception as e:
+                            logger.error(f"Ошибка колбэка прогресса: {e}", exc_info=True)
 
             results.sort(key=lambda r: (r["row"], r["column"]))
 

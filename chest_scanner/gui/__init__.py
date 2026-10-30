@@ -1,3 +1,3 @@
-from chest_scanner.gui.app import ScannerGUI
+from chest_scanner.gui.main_window import ScannerGUI
 
-__all__ = ['ScannerGUI']
+__all__ = ["ScannerGUI"]

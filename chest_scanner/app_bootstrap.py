@@ -1,8 +1,8 @@
 """Application bootstrap: VENV management and dependency imports."""
-import os
-import sys
-import subprocess
 import hashlib
+import os
+import subprocess
+import sys
 
 
 # ============================================================
@@ -152,24 +152,68 @@ def _ensure_venv():
 # ЗАВИСИМОСТИ
 # ============================================================
 try:
-    import cv2
     import json
+    import threading
     import time
     import uuid
-    import threading
-    import requests
-    import numpy as np
-    import tkinter as tk
-    from tkinter import ttk, messagebox, filedialog, simpledialog
-    from datetime import datetime
-    from queue import Queue, Empty
-    from mss import mss
     from concurrent.futures import ThreadPoolExecutor, as_completed
+    from datetime import datetime
+    from queue import Empty, Queue
+
+    import cv2
+    import numpy as np
+    import requests
+    from mss import mss
 
     try:
         from zoneinfo import ZoneInfo
     except ImportError:
         ZoneInfo = None
+
+    # PySide6 (Qt) — графический интерфейс. Загрузка ленивая: сканер
+    # и тесты работают без Qt, GUI-модули импортируют PySide6 сами.
+    try:
+        from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot
+        from PySide6.QtGui import (
+            QAction,
+            QCloseEvent,
+            QColor,
+            QIcon,
+            QKeySequence,
+            QPixmap,
+        )
+        from PySide6.QtWidgets import (
+            QApplication,
+            QCheckBox,
+            QComboBox,
+            QDialog,
+            QFileDialog,
+            QFrame,
+            QHBoxLayout,
+            QInputDialog,
+            QLabel,
+            QLineEdit,
+            QListWidget,
+            QMainWindow,
+            QMenu,
+            QMessageBox,
+            QPlainTextEdit,
+            QPushButton,
+            QScrollArea,
+            QSlider,
+            QStackedWidget,
+            QSystemTrayIcon,
+            QTableWidget,
+            QTableWidgetItem,
+            QVBoxLayout,
+            QWidget,
+        )
+        QT_AVAILABLE = True
+    except Exception:
+        QT_AVAILABLE = False
+        # Атрибуты на случай, если код проверяет их наличие без импорта
+        QObject = Qt = QTimer = Signal = Slot = None
+        QApplication = QMainWindow = QDialog = QWidget = None
 
     try:
         import keyboard

@@ -1,8 +1,8 @@
 """Logging configuration and time utilities."""
-import os
 import logging
-from logging.handlers import RotatingFileHandler
+import os
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
 from chest_scanner.app_bootstrap import BASE_DIR_FOR_APP, ZoneInfo
 

@@ -1,21 +1,28 @@
 """ChestReader mixin: базовое состояние и инициализация."""
 import threading
 
+from chest_scanner import paths, storage
 from chest_scanner.app_bootstrap import WINSOUND_AVAILABLE, winsound
 from chest_scanner.commons import ensure_directories, load_json, save_json
 from chest_scanner.config import activate_profile, load_profiles, validate_config
+from chest_scanner.image_utils import phash, preprocess_icon
 from chest_scanner.items import normalize_items_db
 from chest_scanner.logging_setup import logger
-from chest_scanner import paths
 from chest_scanner.template_cache import template_cache
+
 
 class ScannerBaseMixin:
     """Methods extracted from the original ChestReader."""
+
+    #: Порог расстояния Хэмминга для грубого отбора кандидатов по pHash
+    #: (указывается в конфиге как "phash_threshold").
+    DEFAULT_PHASH_THRESHOLD = 14
 
     def __init__(self):
         profiles = load_profiles()
         activate_profile(profiles.get("active", "Default"))
         ensure_directories()
+        storage.init_db(paths.RESULTS_DB)
 
         raw_config = load_json(paths.CONFIG_FILE, {})
         self.config, config_warnings = validate_config(raw_config)
@@ -41,11 +48,16 @@ class ScannerBaseMixin:
         self.unknown_item_category = "uncategorized"
         self._grid_debug_active = False
         self._scan_lock = threading.Lock()
+        self._scan_cancel_event = threading.Event()
+        self._scan_cancelled = False
+        self.scan_progress_cb = None
         self._auto_scan_active = False
         self._auto_scan_thread = None
         self._last_chest_pos = None
         self._stack_cache = {}
-        self._rebuild_stack_cache()
+        self._phash_entries = []
+        self._detect_cache = {}
+        self._rebuild_indexes()
         self.print_startup_status()
 
     def _rebuild_stack_cache(self):
@@ -54,6 +66,37 @@ class ScannerBaseMixin:
             n = item.get("name")
             if n:
                 self._stack_cache[n] = item.get("stack_size", 64)
+
+    def _rebuild_phash_index(self):
+        """Строит pHash-индекс включённых предметов для грубого отбора.
+
+        Каждая иконка предмета добавляется отдельной записью, поэтому
+        несколько фото одного предмета работают как независимые шаблоны.
+        """
+        entries = []
+        for item in self.items_db.get("items", []):
+            if not item.get("enabled", True):
+                continue
+            name = item.get("name")
+            if not name:
+                continue
+            for path in (item.get("images") or [item.get("image")]):
+                if not path:
+                    continue
+                raw = self.template_cache.get_raw(path)
+                if raw is None:
+                    continue
+                entries.append({"hash": phash(preprocess_icon(raw)), "name": name,
+                                "image": path,
+                                "category": item.get("category", "uncategorized")})
+        self._phash_entries = entries
+        logger.debug(f"pHash-индекс: {len(entries)} шаблонов")
+
+    def _rebuild_indexes(self):
+        """Перестраивает кэши распознавания после изменения базы или конфига."""
+        self._rebuild_stack_cache()
+        self._rebuild_phash_index()
+        self._detect_cache.clear()
 
     def get_item_stack_size(self, name, default=64):
         return self._stack_cache.get(name, default)
@@ -77,6 +120,21 @@ class ScannerBaseMixin:
             winsound.Beep(1175, 180)
         except Exception:
             pass
+
+    # ── Отмена и прогресс сканирования ──
+    def request_scan_cancel(self):
+        """Запрашивает отмену текущего сканирования (потоконезависимо)."""
+        self._scan_cancel_event.set()
+
+    def reset_scan_cancel(self):
+        """Сбрасывает флаги отмены перед новым сканированием."""
+        self._scan_cancel_event.clear()
+        self._scan_cancelled = False
+
+    @property
+    def scan_cancelled(self):
+        """True, если последнее сканирование было отменено пользователем."""
+        return self._scan_cancelled
 
     def print_startup_status(self):
         g = self.grid
@@ -115,5 +173,7 @@ class ScannerBaseMixin:
         self.chest_was_open = False
         self.prompted_unknowns.clear()
         self._last_chest_pos = None
-        self._rebuild_stack_cache()
+        self._rebuild_indexes()
+        self.print_startup_status()
+
 

@@ -2,12 +2,14 @@
 import os
 
 import cv2
+import numpy as np
 
+from chest_scanner import paths
 from chest_scanner.commons import save_json
 from chest_scanner.image_utils import crop_relative
 from chest_scanner.logging_setup import logger
-from chest_scanner import paths
 from chest_scanner.screenshot import screenshot_bgr
+
 
 class GridMixin:
     """Methods extracted from the original ChestReader."""
@@ -41,6 +43,232 @@ class GridMixin:
                               "image": screen[y1:y2, x1:x2],
                               "x1": x1, "y1": y1, "x2": x2, "y2": y2})
         return slots
+
+    # ── Автоопределение границ сундука ──
+
+    #: Допустимые диапазоны для запасного автоопределения columns/rows.
+    AUTO_COLUMNS_RANGE = (2, 18)
+    AUTO_ROWS_RANGE = (1, 12)
+
+    def detect_grid_rect(self, screen):
+        """Ищет прямоугольник сетки сундука на скриншоте.
+
+        Возвращает {"x", "y", "width", "height", "columns", "rows"} или None.
+        Сначала пробует подтвердить пресет из self.grid (columns/rows),
+        при несовпадении определяет количество ячеек по проекциям.
+        """
+        try:
+            return self._detect_grid_rect_impl(screen)
+        except Exception as e:
+            logger.error(f"Автоопределение сетки: {e}", exc_info=True)
+            return None
+
+    def _detect_grid_rect_impl(self, screen):
+        sh, sw = screen.shape[:2]
+        if sw < 200 or sh < 200:
+            return None
+        vlines, hlines = self._grid_line_masks(screen)
+        candidates = self._grid_candidates(vlines, hlines)
+        if not candidates:
+            return None
+        preset_cols = int(self.grid.get("columns", 9))
+        preset_rows = int(self.grid.get("rows", 6))
+        verified = []
+        for (x, y, w, h) in candidates:
+            info = self._verify_grid_candidate(vlines, hlines, x, y, w, h)
+            if info is not None:
+                verified.append((x, y, w, h, info))
+        if not verified:
+            return None
+        # Приоритет: кандидаты, совпавшие с пресетом (±1 ячейка), среди
+        # них — самый верхний на экране (GUI сундука выше инвентаря игрока).
+        preset = [c for c in verified
+                  if abs(c[4]["columns"] - preset_cols) <= 1
+                  and abs(c[4]["rows"] - preset_rows) <= 1]
+        pool = preset if preset else verified
+        _, _, _, _, info = min(pool, key=lambda c: c[1])
+        logger.debug(f"Сетка найдена: ({info['x']},{info['y']}) "
+                     f"{info['width']}x{info['height']}, "
+                     f"{info['columns']}x{info['rows']} ячеек "
+                     f"(кандидатов: {len(verified)}, с пресетом: {len(preset)})")
+        return {"x": info["x"], "y": info["y"],
+                "width": info["width"], "height": info["height"],
+                "columns": info["columns"], "rows": info["rows"]}
+
+    def _grid_line_masks(self, screen):
+        """Маски вертикальных и горизонтальных линий сетки.
+
+        Тёмные тонкие линии на светлом фоне GUI выделяются через blackhat,
+        затем длинными морфологическими ядрами остаются только линии.
+        """
+        gray = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+        k = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+        dark = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, k)
+        _, binm = cv2.threshold(dark, 32, 255, cv2.THRESH_BINARY)
+        sh, sw = binm.shape[:2]
+        kv = max(30, sh // 24)
+        kh = max(30, sw // 40)
+        join_v = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 7))
+        join_h = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 1))
+        vlines = cv2.morphologyEx(
+            cv2.morphologyEx(binm, cv2.MORPH_CLOSE, join_v),
+            cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (1, kv)))
+        hlines = cv2.morphologyEx(
+            cv2.morphologyEx(binm, cv2.MORPH_CLOSE, join_h),
+            cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (kh, 1)))
+        return vlines, hlines
+
+    def _grid_candidates(self, vlines, hlines):
+        """Кандидаты-прямоугольники: замкнутые контуры на объединённой маске."""
+        sh, sw = vlines.shape[:2]
+        mask = cv2.bitwise_or(vlines, hlines)
+        closed = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)),
+                            iterations=2)
+        contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        area_screen = float(sw * sh)
+        out = []
+        for c in contours:
+            x, y, w, h = cv2.boundingRect(c)
+            if w < 100 or h < 50:
+                continue
+            area = float(w * h)
+            if area < 0.005 * area_screen or area > 0.6 * area_screen:
+                continue
+            # Прямоугольность: заполненные ячейки делают края контура
+            # неровными, поэтому порог мягкий — точную проверку делает
+            # верификация проекциями.
+            if cv2.contourArea(c) < 0.5 * area:
+                continue
+            out.append((int(x), int(y), int(w), int(h)))
+        return out
+
+    @staticmethod
+    def _line_peaks(mask, axis, min_len):
+        """Позиции линий в кандидате: проекция маски по оси и группировка.
+
+        axis=0 — вертикальные линии (профиль по столбцам),
+        axis=1 — горизонтальные линии (профиль по строкам).
+        """
+        proj = (mask > 0).sum(axis=axis)
+        if proj.max() <= 0:
+            return []
+        thr = max(min_len, int(proj.max() * 0.5))
+        idx = np.where(proj >= thr)[0]
+        groups = []
+        for i in idx:
+            if groups and i - groups[-1][-1] <= 2:
+                groups[-1].append(int(i))
+            else:
+                groups.append([int(i)])
+        return [float(np.mean(g)) for g in groups]
+
+    @staticmethod
+    def _peaks_regular(peaks):
+        """Шаг между линиями равномерный (std/mean < 0.2)."""
+        if len(peaks) < 2:
+            return False
+        diffs = np.diff(peaks)
+        mean = float(np.mean(diffs))
+        return mean > 10 and float(np.std(diffs)) / mean < 0.2
+
+    def _verify_grid_candidate(self, vlines, hlines, x, y, w, h):
+        """Верификация кандидата проекциями; уточняет прямоугольник по пикам.
+
+        Возвращает {"x","y","width","height","columns","rows"} в локальных
+        координатах кандидата или None.
+        """
+        vsub = vlines[y:y + h, x:x + w]
+        hsub = hlines[y:y + h, x:x + w]
+        vp = self._line_peaks(vsub, axis=0, min_len=max(10, int(h * 0.5)))
+        hp = self._line_peaks(hsub, axis=1, min_len=max(10, int(w * 0.5)))
+        if len(vp) < 2 or len(hp) < 2:
+            return None
+        if not self._peaks_regular(vp) or not self._peaks_regular(hp):
+            return None
+        # Крайние линии сетки часто сливаются с рамкой контейнера и не
+        # попадают в маску — достраиваем их по регулярному шагу.
+        vp = self._extend_peaks(vp, 0.0, float(w))
+        hp = self._extend_peaks(hp, 0.0, float(h))
+        cols = len(vp) - 1
+        rows = len(hp) - 1
+        lo, hi = self.AUTO_COLUMNS_RANGE
+        if not (lo <= cols <= hi):
+            return None
+        lo, hi = self.AUTO_ROWS_RANGE
+        if not (lo <= rows <= hi):
+            return None
+        cw = (vp[-1] - vp[0]) / cols
+        chh = (hp[-1] - hp[0]) / rows
+        if cw < 12 or chh < 12:
+            return None
+        if not 0.6 <= cw / chh <= 1.6:  # ячейки примерно квадратные
+            return None
+        # Границы сетки — центры крайних линий (как в ручной калибровке).
+        x1 = int(round(x + vp[0]))
+        x2 = int(round(x + vp[-1]))
+        y1 = int(round(y + hp[0]))
+        y2 = int(round(y + hp[-1]))
+        return {"x": max(0, x1), "y": max(0, y1),
+                "width": x2 - x1, "height": y2 - y1,
+                "columns": cols, "rows": rows}
+
+    @staticmethod
+    def _extend_peaks(peaks, lo, hi):
+        """Дополняет пики виртуальными крайними линиями по регулярному шагу.
+
+        Линия добавляется, только если полностью помещается в границы
+        кандидата (с допуском 2 px), иначе сетка считается завершённой.
+        """
+        if len(peaks) < 2:
+            return peaks
+        cell = float(np.mean(np.diff(peaks)))
+        out = list(peaks)
+        guard = 0
+        while out[0] - cell >= lo - 2 and guard < 32:
+            out.insert(0, out[0] - cell)
+            guard += 1
+        guard = 0
+        while out[-1] + cell <= hi + 2 and guard < 32:
+            out.append(out[-1] + cell)
+            guard += 1
+        return out
+
+    def auto_detect_grid(self):
+        """Однократное автоопределение сетки открытого сундука.
+
+        Ищет сетку на скриншоте, пересчитывает координаты в
+        reference_screen_size и сохраняет их в config.json. Возвращает
+        словарь chest_grid или None при неудаче.
+        """
+        screen = screenshot_bgr()
+        if self.chest_template is not None and not self.chest_is_open(screen):
+            logger.warning("Автоопределение: сундук не открыт "
+                           "(шаблон сундука не найден на экране)")
+            return None
+        rect = self.detect_grid_rect(screen)
+        if rect is None:
+            logger.warning("Автоопределение: сетка сундука не найдена. "
+                           "Убедитесь, что интерфейс сундука открыт и виден целиком.")
+            return None
+        sh, sw = screen.shape[:2]
+        scx, scy = sw / self.ref_w, sh / self.ref_h
+        self.grid = {"x1": round(rect["x"] / scx), "y1": round(rect["y"] / scy),
+                     "x2": round((rect["x"] + rect["width"]) / scx),
+                     "y2": round((rect["y"] + rect["height"]) / scy),
+                     "columns": int(rect["columns"]), "rows": int(rect["rows"])}
+        self.config["chest_grid"] = self.grid
+        save_json(paths.CONFIG_FILE, self.config)
+        logger.info(f"Автоопределение сетки: ({self.grid['x1']},{self.grid['y1']})"
+                    f" -> ({self.grid['x2']},{self.grid['y2']}), "
+                    f"{self.grid['columns']}x{self.grid['rows']} ячеек")
+        try:
+            created = self.auto_generate_templates(force=False)
+            if created:
+                logger.info(f"Автоопределение: созданы шаблоны {', '.join(created)}")
+        except Exception as e:
+            logger.error(f"Автоопределение: генерация шаблонов: {e}", exc_info=True)
+        return dict(self.grid)
 
     def show_grid_debug(self):
         if self._grid_debug_active:

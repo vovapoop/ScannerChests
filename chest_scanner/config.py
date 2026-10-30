@@ -46,6 +46,7 @@ def activate_profile(name):
     paths.UNKNOWN_DIR = os.path.join(paths.PROFILE_DIR, "unknown_items")
     paths.ITEM_IMAGES_DIR = os.path.join(paths.PROFILE_DIR, "items")
     paths.RESULTS_FILE = os.path.join(paths.RESULTS_DIR, "chests.json")
+    paths.RESULTS_DB = os.path.join(paths.RESULTS_DIR, "chests.db")
     paths.HISTORY_DIR = os.path.join(paths.RESULTS_DIR, "history")
     paths.DISCORD_IDS_FILE = os.path.join(paths.RESULTS_DIR, "discord_message_ids.json")
     paths.DISCORD_WEBHOOK_FILE = os.path.join(paths.PROFILE_DIR, "discord_webhook.json")
@@ -98,11 +99,23 @@ def validate_config(data):
                           ("empty_slot_threshold", 1, 100000),
                           ("item_match_threshold", 1, 1000000),
                           ("item_match_margin", 0, 100000),
+                          ("phash_threshold", 0, 64),
                           ("scan_interval_seconds", 0.1, 3600)]:
         v = cfg.get(field)
         if not isinstance(v, (int, float)) or not (lo <= v <= hi):
             cfg[field] = paths.DEFAULT_CONFIG[field]
             warnings.append(f"{field}={v!r} вне диапазона")
+    # Миграция порога шаблона сундука: старое значение по умолчанию 0.82
+    # допускало ложные срабатывания детекции на других интерфейсах и тёмных
+    # участках мира; новый дефолт — 0.88 (см. plans/auto-detect-grid.md).
+    if cfg.get("chest_template_threshold") == 0.82:
+        cfg["chest_template_threshold"] = paths.DEFAULT_CONFIG["chest_template_threshold"]
+        warnings.append("chest_template_threshold: 0.82 → 0.88 "
+                        "(исправлены ложные срабатывания при закрытом сундуке)")
+    for field in ("item_detect_cache", "tray_minimize_to_tray", "notify_on_scan"):
+        if not isinstance(cfg.get(field), bool):
+            cfg[field] = paths.DEFAULT_CONFIG[field]
+            warnings.append(f"{field} повреждён (ожидался bool)")
     for roi in ("icon_roi_in_slot", "count_roi_in_slot"):
         r = cfg.get(roi)
         if not isinstance(r, list) or len(r) != 4 or not all(isinstance(x, (int, float)) for x in r):
@@ -112,6 +125,8 @@ def validate_config(data):
     if not isinstance(dm, dict):
         cfg["discord_message"] = paths.DEFAULT_CONFIG["discord_message"]
         warnings.append("discord_message повреждён")
+    # Примечание: legacy-ключ "github_db" из старых конфигов остаётся в cfg,
+    # но больше нигде не используется и безвреден.
     hk_defaults = paths.DEFAULT_CONFIG["hotkeys"]
     hk = cfg.get("hotkeys")
     if not isinstance(hk, dict):

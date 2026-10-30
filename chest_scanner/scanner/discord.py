@@ -5,10 +5,11 @@ import unicodedata
 
 import requests
 
+from chest_scanner import paths
 from chest_scanner.commons import load_json, save_json
 from chest_scanner.discord import split_discord_message
 from chest_scanner.logging_setup import logger, now_moscow
-from chest_scanner import paths
+
 
 class DiscordMixin:
     """Methods extracted from the original ChestReader."""

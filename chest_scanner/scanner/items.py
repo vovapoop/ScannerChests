@@ -6,11 +6,19 @@ import uuid
 
 import cv2
 
+from chest_scanner import paths
 from chest_scanner.commons import absolute_path, save_json
-from chest_scanner.image_utils import crop_relative, image_distance, image_distance_coarse, resize_image
+from chest_scanner.image_utils import (
+    crop_relative,
+    hamming,
+    image_distance,
+    phash,
+    preprocess_icon,
+    resize_image,
+)
 from chest_scanner.items import next_image_path, normalize_items_db
 from chest_scanner.logging_setup import logger
-from chest_scanner import paths
+
 
 class ItemsMixin:
     """Methods extracted from the original ChestReader."""
@@ -27,54 +35,60 @@ class ItemsMixin:
         return crop_relative(slot_image, self.config["icon_roi_in_slot"])
 
     def detect_item(self, icon_image):
-        """Двухуровневое распознавание: грубое 16×16, затем точное 48×48."""
-        COARSE_TOP_N = 10
+        """Двухуровневое распознавание: грубый отбор по pHash, затем точное 48×48.
+
+        Возвращает (name, unknown, distance, category). При неопределённом
+        результате name=None, unknown=True — создание записи в базе
+        (unknown_item) выполняется вызывающей стороной (workflow).
+        """
+        if icon_image is None or icon_image.size == 0:
+            return None, True, float("inf"), "uncategorized"
+        prep = preprocess_icon(icon_image)
         ih, iw = icon_image.shape[:2]
 
-        # Уровень 1: грубое сравнение
-        coarse = []
-        for item in self.items_db["items"]:
-            if not item.get("enabled", True):
-                continue
-            name = item.get("name")
-            if not name:
-                continue
-            for path in (item.get("images") or [item.get("image")]):
-                if not path:
-                    continue
-                tpl = self.template_cache.get_resized(path, iw, ih)
-                if tpl is None:
-                    continue
-                cd = image_distance_coarse(icon_image, tpl)
-                coarse.append({"name": name, "image": path, "coarse": cd,
-                               "category": item.get("category", "uncategorized")})
+        # Кэш результата по хэшу иконки (ускорение повторных сканов).
+        # Кэшируются только уверенные распознавания.
+        cache_key = None
+        if self.config.get("item_detect_cache", True):
+            small = resize_image(prep, 16, 16)
+            if small is not None:
+                cache_key = hashlib.md5(small.tobytes()).hexdigest()
+                hit = self._detect_cache.get(cache_key)
+                if hit is not None:
+                    return hit
 
-        if not coarse:
-            un = self.add_unknown_item(icon_image)
-            return un, True, float("inf"), "uncategorized"
+        def finish(result):
+            if cache_key and result[0] is not None and not result[1]:
+                if len(self._detect_cache) < 50_000:
+                    self._detect_cache[cache_key] = result
+            return result
 
-        coarse.sort(key=lambda c: c["coarse"])
-        top = coarse[:COARSE_TOP_N]
+        # Уровень 1: грубый отбор кандидатов по pHash-индексу
+        ihash = phash(prep)
+        thr = int(self.config.get("phash_threshold", self.DEFAULT_PHASH_THRESHOLD))
+        candidates = [e for e in self._phash_entries if hamming(ihash, e["hash"]) <= thr]
+        if not candidates and self._phash_entries:
+            # Фоллбэк: ближайшие по Хэммингу шаблоны
+            candidates = sorted(self._phash_entries,
+                                key=lambda e: hamming(ihash, e["hash"]))[:10]
+
+        if not candidates:
+            return finish((None, True, float("inf"), "uncategorized"))
 
         # Уровень 2: точное сравнение
-        candidates = []
-        for c in top:
-            tpl = self.template_cache.get_resized(c["image"], iw, ih)
+        best_per = {}
+        for cand in candidates:
+            tpl = self.template_cache.get_resized(cand["image"], iw, ih)
             if tpl is None:
                 continue
             dist = image_distance(icon_image, tpl)
-            candidates.append({"name": c["name"], "image": c["image"],
-                               "distance": dist, "category": c["category"]})
+            n = cand["name"]
+            if n not in best_per or dist < best_per[n]["distance"]:
+                best_per[n] = {"name": n, "distance": dist,
+                               "category": cand["category"]}
 
-        if not candidates:
-            un = self.add_unknown_item(icon_image)
-            return un, True, float("inf"), "uncategorized"
-
-        best_per = {}
-        for c in candidates:
-            n = c["name"]
-            if n not in best_per or c["distance"] < best_per[n]["distance"]:
-                best_per[n] = c
+        if not best_per:
+            return finish((None, True, float("inf"), "uncategorized"))
 
         ordered = sorted(best_per.values(), key=lambda x: x["distance"])
         best = ordered[0]
@@ -88,20 +102,14 @@ class ItemsMixin:
             logger.debug(f"[ITEM] {bn} d={bd:.1f} second={sd:.1f} diff={sd - bd:.1f}")
 
         if bd > threshold:
-            un = self.add_unknown_item(icon_image)
-            logger.info(f"Слабое совпадение (SSIM). Создан: {un}")
-            return un, True, bd, "uncategorized"
-
+            logger.info("Слабое совпадение (SSIM). Будет создан unknown.")
+            return finish((None, True, bd, "uncategorized"))
         if sd != float("inf") and (sd - bd) < margin:
-            un = self.add_unknown_item(icon_image)
-            logger.info(f"Неоднозначное совпадение. Создан: {un}")
-            return un, True, bd, "uncategorized"
-
+            logger.info("Неоднозначное совпадение. Будет создан unknown.")
+            return finish((None, True, bd, "uncategorized"))
         if bn.startswith("unknown_"):
-            rn = self.add_unknown_item(icon_image)
-            return rn, rn.startswith("unknown_"), bd, bc
-
-        return bn, False, bd, bc
+            return finish((None, True, bd, bc))
+        return finish((bn, False, bd, bc))
 
     def add_unknown_item(self, icon_image):
         if icon_image is None or icon_image.size == 0:
@@ -163,7 +171,7 @@ class ItemsMixin:
                 logger.error(f"Переименование изображения: {e}")
         self.items_db = normalize_items_db(self.items_db)
         save_json(paths.ITEMS_FILE, self.items_db)
-        self._rebuild_stack_cache()
+        self._rebuild_indexes()
         logger.info(f"Предмет сохранён: {fn}")
         return fn
 
@@ -176,37 +184,15 @@ class ItemsMixin:
         icon = self.extract_icon(si)
         if icon is None or icon.size == 0:
             return None
-        best = self._compare_with_db(icon)
-        if best is None:
+        name, unknown, dist, cat = self.detect_item(icon)
+        if unknown or name is None:
             return {"row": slot["row"] + 1, "column": slot["column"] + 1,
                     "item": None, "quantity": 1, "unknown": True,
-                    "similarity_score": 0.0, "category": "uncategorized",
-                    "_icon": icon, "_slot_image": si}
+                    "similarity_score": round(float(dist), 2),
+                    "category": cat, "_icon": icon, "_slot_image": si}
         qty = self.read_quantity(si)
         return {"row": slot["row"] + 1, "column": slot["column"] + 1,
-                "item": best["name"], "quantity": qty, "unknown": False,
-                "similarity_score": round(best["distance"], 2),
-                "category": best.get("category", "uncategorized"),
-                "_icon": None, "_slot_image": None}
-
-    def _compare_with_db(self, icon_image):
-        best = None
-        ih, iw = icon_image.shape[:2]
-        for item in self.items_db["items"]:
-            if not item.get("enabled", True):
-                continue
-            name = item.get("name")
-            if not name:
-                continue
-            for path in (item.get("images") or [item.get("image")]):
-                if not path:
-                    continue
-                tpl = self.template_cache.get_resized(path, iw, ih)
-                if tpl is None:
-                    continue
-                dist = image_distance(icon_image, tpl)
-                if best is None or dist < best["distance"]:
-                    best = {"name": name, "distance": dist,
-                            "category": item.get("category", "uncategorized")}
-        return best
+                "item": name, "quantity": qty, "unknown": False,
+                "similarity_score": round(float(dist), 2),
+                "category": cat, "_icon": None, "_slot_image": None}
 

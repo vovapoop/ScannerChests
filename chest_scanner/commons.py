@@ -1,9 +1,10 @@
 """Общие утилиты: JSON-доступ, пути, создание директорий."""
 import json
 import os
+import shutil
 
 from chest_scanner import paths
-from chest_scanner.logging_setup import logger, LOGS_DIR
+from chest_scanner.logging_setup import LOGS_DIR, logger
 
 
 def ensure_directories():
@@ -42,10 +43,26 @@ def load_json(path, default):
         return default.copy() if hasattr(default, "copy") else default
 
 
-def save_json(path, data):
-    """Сохраняет данные в JSON (создаёт директории при необходимости)."""
+def save_json(path, data, backup=False):
+    """Сохраняет данные в JSON атомарно: temp-файл + fsync + rename.
+
+    Позволяет избежать повреждения файла при сбое/прерывании записи.
+    Если backup=True, предыдущая версия копируется в "<path>.backup".
+    """
     d = os.path.dirname(path)
     if d:
         os.makedirs(d, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except OSError:
+            pass
+    if backup and os.path.exists(path):
+        try:
+            shutil.copy2(path, f"{path}.backup")
+        except OSError:
+            pass
+    os.replace(tmp, path)

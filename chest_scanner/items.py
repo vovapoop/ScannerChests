@@ -42,6 +42,25 @@ def copy_image_as_png(src, rel_target):
     return tgt
 
 
+def is_safe_icon_path(path):
+    """Проверяет, что относительный путь иконки безопасен.
+
+    Путь должен вести внутрь профиля (items/ или unknown_items/),
+    не содержать ".." и абсолютных/UNC-компонентов.
+    """
+    if not path or not isinstance(path, str):
+        return False
+    n = path.replace("\\", "/").strip("/")
+    if n != n.lstrip(".") and ".." in n.split("/"):
+        return False
+    parts = n.split("/")
+    if not parts or any(p in ("", ".", "..") for p in parts):
+        return False
+    if os.path.isabs(path) or ":" in parts[0]:
+        return False
+    return parts[0] in ("items", "unknown_items")
+
+
 def normalize_items_db(data):
     if not isinstance(data, dict):
         data = {"items": []}
@@ -63,12 +82,12 @@ def normalize_items_db(data):
         old = r.get("image")
         if old and old not in images:
             images.insert(0, old)
-        images = [str(x) for x in images if x]
+        images = [str(x) for x in images if x and is_safe_icon_path(x)]
         item = dict(r)
         item["id"] = str(r.get("id") or uuid.uuid4())
         item["name"] = name
         item["images"] = images
-        item["image"] = images[0] if images else r.get("image", "")
+        item["image"] = images[0] if images else ""
         try:
             item["stack_size"] = max(1, int(r.get("stack_size", 64)))
         except (TypeError, ValueError):

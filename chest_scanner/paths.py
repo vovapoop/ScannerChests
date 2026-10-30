@@ -18,6 +18,7 @@ RESULTS_DIR = os.path.join(PROFILE_DIR, "results")
 UNKNOWN_DIR = os.path.join(PROFILE_DIR, "unknown_items")
 ITEM_IMAGES_DIR = os.path.join(PROFILE_DIR, "items")
 RESULTS_FILE = os.path.join(RESULTS_DIR, "chests.json")
+RESULTS_DB = os.path.join(RESULTS_DIR, "chests.db")
 HISTORY_DIR = os.path.join(RESULTS_DIR, "history")
 DISCORD_IDS_FILE = os.path.join(RESULTS_DIR, "discord_message_ids.json")
 DISCORD_WEBHOOK_FILE = os.path.join(PROFILE_DIR, "discord_webhook.json")
@@ -54,13 +55,17 @@ DEFAULT_CONFIG = {
                     "columns": 9, "rows": 6},
     "icon_roi_in_slot": [0.10, 0.08, 0.80, 0.67],
     "count_roi_in_slot": [0.30, 0.40, 0.67, 0.58],
-    "chest_template_threshold": 0.82,
+    "chest_template_threshold": 0.88,
     "empty_slot_threshold": 600,
     "item_match_threshold": 1500,
     "item_match_margin": 200,
+    "phash_threshold": 14,
+    "item_detect_cache": True,
     "scan_interval_seconds": 2,
     "print_item_candidates": False,
     "auto_scan_enabled": False,
+    "tray_minimize_to_tray": False,
+    "notify_on_scan": True,
     "discord_webhook_env": "DISCORD_WEBHOOK_URL",
     "discord_max_items_in_message": 25,
     "discord_delete_old_messages": True,
@@ -77,6 +82,6 @@ DEFAULT_CONFIG = {
         "unknown_item": "• {name}",
         "table": {"name_width": 30, "total_width": 12, "stacks_width": 10},
     },
-    "hotkeys": {"digits": "f6", "grid": "f7", "scan": "f8",
+    "hotkeys": {"toggle_window": "f6", "scan": "f8",
                 "discord": "f9", "exit": "f10"},
 }

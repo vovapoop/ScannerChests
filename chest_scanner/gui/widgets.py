@@ -1,110 +1,179 @@
-"""GUI mixin: переиспользуемые виджеты и хелперы."""
+"""GUI widget: переиспользуемые виджеты и хелперы на PySide6."""
 import os
 import shutil
-import tkinter as tk
-from tkinter import filedialog
 
-from chest_scanner.commons import absolute_path
-from chest_scanner.items import sanitize_filename
+from PySide6.QtCore import (
+    QAbstractAnimation,
+    QEasingCurve,
+    QParallelAnimationGroup,
+    QPropertyAnimation,
+    Qt,
+    QTimer,
+)
+from PySide6.QtGui import QCursor, QPixmap
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
 from chest_scanner import paths
+from chest_scanner.commons import absolute_path
+from chest_scanner.gui.theme import PALETTE
+from chest_scanner.items import sanitize_filename
 
 
-class GuiWidgetsMixin:
-    def _button(self, parent, text, command, accent=False):
-        bg = self.ACCENT if accent else self.PANEL_2
-        act = self.ACCENT_HOVER if accent else "#252c36"
-        b = tk.Button(parent, text=text, command=command, bg=bg, fg=self.TEXT,
-                      activebackground=act, activeforeground=self.TEXT,
-                      relief="flat", bd=0, padx=16, pady=9, cursor="hand2",
-                      font=("Segoe UI", 10, "bold"))
-        b.bind("<Enter>", lambda e: b.configure(bg=act))
-        b.bind("<Leave>", lambda e: b.configure(bg=bg))
-        return b
+class HoverButton(QPushButton):
+    """Кнопка в фирменном стиле: accent/danger/ghost через objectName."""
 
-    def _card(self, parent, title, value, color=None):
-        f = tk.Frame(parent, bg=self.PANEL, highlightbackground=self.BORDER, highlightthickness=1)
-        tk.Label(f, text=title.upper(), bg=self.PANEL, fg=self.MUTED,
-                 font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
-        lb = tk.Label(f, text=value, bg=self.PANEL, fg=color or self.TEXT,
-                      font=("Segoe UI", 21, "bold"))
-        lb.pack(anchor="w", padx=16, pady=(0, 12))
-        return f, lb
+    def __init__(self, text="", parent=None, accent=False, danger=False,
+                 ghost=False, min_height=34):
+        super().__init__(text, parent)
+        if accent:
+            self.setObjectName("accent")
+        elif danger:
+            self.setObjectName("danger")
+        elif ghost:
+            self.setObjectName("ghost")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setMinimumHeight(min_height)
+        self.setFocusPolicy(Qt.NoFocus)
 
-    def _settings_card(self, parent, title, subtitle=None):
-        card = tk.Frame(parent, bg=self.PANEL, highlightbackground=self.BORDER, highlightthickness=1)
-        card.pack(fill="x", padx=16, pady=(12, 0))
-        tk.Label(card, text=title, bg=self.PANEL, fg=self.TEXT,
-                 font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
+
+class StatCard(QFrame):
+    """Карточка статистики: заголовок и крупное значение."""
+
+    def __init__(self, title, value="0", color=None, parent=None):
+        super().__init__(parent)
+        self.setProperty("card", True)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(18, 14, 18, 14)
+        lay.setSpacing(3)
+        t = QLabel(title.upper())
+        t.setProperty("section", True)
+        lay.addWidget(t)
+        self.value_lbl = QLabel(value)
+        self.value_lbl.setProperty("big", True)
+        if color:
+            self.value_lbl.setStyleSheet(f"color: {color};")
+        lay.addWidget(self.value_lbl)
+
+    def set_value(self, value):
+        self.value_lbl.setText(str(value))
+
+
+def make_label(text, muted=False, small=False, big=False, section=False,
+               title=False, color=None, wrap=False):
+    """Хелпер для QLabel с типовыми свойствами стиля."""
+    lbl = QLabel(text)
+    lbl.setProperty("muted", muted)
+    lbl.setProperty("small", small)
+    lbl.setProperty("big", big)
+    lbl.setProperty("section", section)
+    lbl.setProperty("title", title)
+    if color:
+        lbl.setStyleSheet(f"color: {color};")
+    if wrap:
+        lbl.setWordWrap(True)
+    return lbl
+
+
+class SettingCard(QFrame):
+    """Карточка для страниц настроек с заголовком и подзаголовком."""
+
+    def __init__(self, title, subtitle=None, parent=None):
+        super().__init__(parent)
+        self.setProperty("card", True)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(20, 16, 20, 18)
+        lay.setSpacing(2)
+        t = make_label(title, big=True)
+        lay.addWidget(t)
         if subtitle:
-            tk.Label(card, text=subtitle, bg=self.PANEL, fg=self.MUTED,
-                     font=("Segoe UI", 9), wraplength=680, justify="left").pack(anchor="w", padx=16)
-        inner = tk.Frame(card, bg=self.PANEL)
-        inner.pack(fill="x", padx=16, pady=(10, 14))
-        return inner
+            s = make_label(subtitle, muted=True, wrap=True)
+            lay.addWidget(s)
+        self.content = QVBoxLayout()
+        self.content.setSpacing(6)
+        lay.addLayout(self.content)
+        lay.addStretch(1)
 
-    def _settings_entry(self, parent, label, var, width=18):
-        row = tk.Frame(parent, bg=self.PANEL)
-        row.pack(fill="x", pady=3)
-        tk.Label(row, text=label, bg=self.PANEL, fg=self.MUTED,
-                 font=("Segoe UI", 10)).pack(side="left")
-        e = tk.Entry(row, textvariable=var, bg=self.PANEL_2, fg=self.TEXT,
-                     insertbackground=self.TEXT, relief="flat", width=width,
-                     justify="right", font=("Segoe UI", 10))
-        e.pack(side="right", ipady=5)
-        return e
 
-    def _settings_check(self, parent, label, var):
-        tk.Checkbutton(parent, text=label, variable=var, bg=self.PANEL, fg=self.TEXT,
-                       selectcolor=self.PANEL_2, activebackground=self.PANEL,
-                       activeforeground=self.TEXT, font=("Segoe UI", 10),
-                       anchor="w").pack(fill="x", pady=4)
+def entry_row(parent_layout, label, widget, stretch=None):
+    """Классическая строка «подпись слева — виджет справа»."""
+    row = QHBoxLayout()
+    row.setSpacing(10)
+    lb = make_label(label, muted=True)
+    row.addWidget(lb, 1)
+    row.addWidget(widget, stretch if stretch is not None else 0)
+    parent_layout.addLayout(row)
+    return row
 
-    def _settings_scale(self, parent, label, var, from_, to, fmt="{:.2f}"):
-        frame = tk.Frame(parent, bg=self.PANEL)
-        frame.pack(fill="x", pady=(6, 2))
-        top = tk.Frame(frame, bg=self.PANEL)
-        top.pack(fill="x")
-        tk.Label(top, text=label, bg=self.PANEL, fg=self.MUTED,
-                 font=("Segoe UI", 10)).pack(side="left")
-        vl = tk.Label(top, text=fmt.format(var.get()), bg=self.PANEL, fg=self.TEXT,
-                      font=("Segoe UI", 10, "bold"))
-        vl.pack(side="right")
 
-        def cmd(v):
-            try:
-                vl.configure(text=fmt.format(float(v)))
-            except Exception:
-                pass
+class TemplateSelector(QWidget):
+    """Выбор файла-шаблона с предпросмотром изображения.
 
-        tk.Scale(frame, from_=from_, to=to, orient="horizontal", variable=var,
-                 command=cmd, bg=self.PANEL, troughcolor=self.PANEL_2, fg=self.TEXT,
-                 highlightthickness=0, bd=0, length=480, sliderlength=18,
-                 activebackground=self.ACCENT, showvalue=0).pack(fill="x", pady=(2, 6))
+    Сигнал changed(str) — выбран относительный путь (или пустая строка).
+    """
 
-    def _template_selector(self, parent, var, title):
-        row = tk.Frame(parent, bg=self.PANEL)
-        row.pack(fill="x")
-        preview = tk.Label(row, text="Нет файла", bg=self.PANEL_2, fg=self.MUTED, width=14, height=6)
-        preview.pack(side="left", padx=(0, 14))
-        info = tk.Frame(row, bg=self.PANEL)
-        info.pack(side="left", fill="both", expand=True)
-        tk.Label(info, textvariable=var, bg=self.PANEL, fg=self.TEXT,
-                 wraplength=520, justify="left", font=("Segoe UI", 9)).pack(anchor="w")
+    def __init__(self, value="", title="Выбор файла", parent=None):
+        super().__init__(parent)
+        pal = PALETTE
+        self._title = title
+        self._preview_pixmap = None
 
-        def choose():
-            path = filedialog.askopenfilename(
-                parent=self._settings_win, title=title,
-                filetypes=[("Изображения", "*.png *.jpg *.jpeg"), ("Все файлы", "*.*")])
-            if not path:
-                return
-            rel = self._import_template_file(path, os.path.basename(path))
-            var.set(rel)
-            self._update_template_preview(preview, rel)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(14)
 
-        tk.Button(info, text="Выбрать файл...", command=choose, bg=self.ACCENT, fg="white",
-                  activebackground=self.ACCENT_HOVER, relief="flat", bd=0, padx=12, pady=6,
-                  cursor="hand2", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(8, 0))
-        self._update_template_preview(preview, var.get())
+        self.preview = QLabel("Нет файла")
+        self.preview.setProperty("muted", True)
+        self.preview.setFixedSize(92, 92)
+        self.preview.setAlignment(Qt.AlignCenter)
+        self.preview.setStyleSheet(
+            f"background: {pal['PANEL_2']}; border: 1px solid {pal['BORDER']};"
+            " border-radius: 8px;")
+        row.addWidget(self.preview, 0, Qt.AlignTop)
+
+        info = QVBoxLayout()
+        info.setSpacing(8)
+        self.path_lbl = make_label(value or "—", muted=True, wrap=True)
+        info.addWidget(self.path_lbl)
+        choose_btn = HoverButton("Выбрать файл...", accent=True, min_height=32)
+        choose_btn.clicked.connect(self._choose)
+        info.addWidget(choose_btn)
+        info.addStretch(1)
+        row.addLayout(info, 1)
+
+        self._value = value
+        self._update_preview(value)
+
+    # ── API ──
+    def value(self):
+        return self._value
+
+    def set_value(self, value):
+        self._value = value or ""
+        self.path_lbl.setText(self._value or "—")
+        self._update_preview(self._value)
+
+    # ── Внутреннее ──
+    def _choose(self):
+        start = ""
+        full = absolute_path(self._value)
+        if full and os.path.isfile(full):
+            start = os.path.dirname(full)
+        path, _ = QFileDialog.getOpenFileName(
+            self, self._title, start,
+            "Изображения (*.png *.jpg *.jpeg);;Все файлы (*.*)")
+        if not path:
+            return
+        rel = self._import_template_file(path, os.path.basename(path))
+        self.set_value(rel)
 
     def _import_template_file(self, source, default_name):
         sa = os.path.abspath(source)
@@ -128,37 +197,173 @@ class GuiWidgetsMixin:
         shutil.copy2(sa, ta)
         return os.path.relpath(ta, ba).replace("\\", "/")
 
-    def _update_template_preview(self, label, path):
-        label.configure(image="", text="Нет файла")
+    def _update_preview(self, path):
+        self.preview.setText("Нет файла")
+        self._preview_pixmap = None
         full = absolute_path(path)
         if not full or not os.path.isfile(full):
             return
         try:
-            from PIL import Image, ImageTk
-            img = Image.open(full)
-            img.thumbnail((84, 84))
-            photo = ImageTk.PhotoImage(img)
-            label.configure(image=photo, text="")
-            label.image = photo
+            pm = QPixmap(full)
+            if pm.isNull():
+                return
+            pm = pm.scaled(88, 88, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self._preview_pixmap = pm
+            self.preview.setPixmap(pm)
         except Exception:
-            try:
-                photo = tk.PhotoImage(file=full)
-                sc = max(1, max(photo.width(), photo.height()) // 84)
-                if sc > 1:
-                    photo = photo.subsample(sc, sc)
-                label.configure(image=photo, text="")
-                label.image = photo
-            except Exception:
-                label.configure(image="", text="Нет предпросмотра")
+            self.preview.setText("Нет предпросмотра")
 
-    def _parse_int(self, var, name):
-        try:
-            return int(float(str(var.get()).strip()))
-        except Exception:
-            raise ValueError(f"{name}: нужно целое число.")
 
-    def _parse_float(self, var, name):
-        try:
-            return float(str(var.get()).strip())
-        except Exception:
-            raise ValueError(f"{name}: нужно число.")
+class SideBar(QFrame):
+    """Боковая панель навигации с автоскрытием.
+
+    По умолчанию панель свёрнута в узкую полосу с иконками; при наведении
+    курсора плавно разворачивается, при уходе — снова сворачивается.
+
+    tools — список кортежей (ключ, «иконка  подпись», обработчик).
+    """
+
+    WIDTH_FULL = 200
+    WIDTH_COLLAPSED = 44
+
+    def __init__(self, tools, on_exit=None, parent=None):
+        super().__init__(parent)
+        self.setProperty("card", True)
+        self.setMinimumWidth(self.WIDTH_COLLAPSED)
+        self.setMaximumWidth(self.WIDTH_COLLAPSED)
+        self._expanded = False
+        self._anim = None
+
+        self._build(tools, on_exit)
+        self._sync_view()
+
+        self._anim_target = None
+        self._hover_timer = QTimer(self)
+        self._hover_timer.setInterval(90)
+        self._hover_timer.timeout.connect(self._poll_hover)
+        self._hover_timer.start()
+
+        # Гистерезис: задержки вместо мгновенной реакции исключают «дёрганье».
+        self._expand_delay = QTimer(self)
+        self._expand_delay.setSingleShot(True)
+        self._expand_delay.setInterval(120)
+        self._expand_delay.timeout.connect(self._do_expand)
+        self._collapse_delay = QTimer(self)
+        self._collapse_delay.setSingleShot(True)
+        self._collapse_delay.setInterval(350)
+        self._collapse_delay.timeout.connect(self._do_collapse)
+
+    # ── API ──
+    def is_expanded(self):
+        return self._expanded
+
+    def set_expanded(self, expanded, animate=True):
+        """Разворачивает/сворачивает панель с плавной анимацией ширины."""
+        if expanded == self._expanded:
+            return
+        target = self.WIDTH_FULL if expanded else self.WIDTH_COLLAPSED
+        if (self._anim is not None
+                and self._anim.state() == QAbstractAnimation.Running
+                and self._anim_target == target):
+            self._expanded = expanded  # анимация уже идёт в нужную сторону
+            return
+        if self._anim is not None:
+            self._anim.stop()
+        self._expanded = expanded
+        self._anim_target = target
+        self._anim = QParallelAnimationGroup(self)
+        # Важно: QWidget.minimumWidth()/maximumWidth() — это методы, а не свойства.
+        starts = {b"minimumWidth": self.minimumWidth(),
+                  b"maximumWidth": self.maximumWidth()}
+        for prop in (b"minimumWidth", b"maximumWidth"):
+            anim = QPropertyAnimation(self, prop, self)
+            anim.setDuration(180 if animate else 0)
+            anim.setStartValue(starts[prop])
+            anim.setEndValue(target)
+            anim.setEasingCurve(QEasingCurve.InOutCubic)
+            self._anim.addAnimation(anim)
+        self._anim.finished.connect(self._anim_finished)
+        self._anim.start()
+        self._sync_view()
+
+    # ── Сборка ──
+    def _build(self, tools, on_exit):
+        pal = PALETTE
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(8, 12, 8, 10)
+        lay.setSpacing(2)
+
+        self.section_lbl = make_label("ИНСТРУМЕНТЫ", section=True)
+        lay.addWidget(self.section_lbl)
+        lay.addSpacing(6)
+
+        self.buttons = {}
+        self._tool_meta = {}
+        for key, text, cmd in tools:
+            parts = text.split("  ", 1)
+            icon = parts[0] if parts else ""
+            label = parts[1] if len(parts) > 1 else ""
+            b = HoverButton(text, ghost=True)
+            b.clicked.connect(cmd)
+            lay.addWidget(b)
+            self.buttons[key] = b
+            self._tool_meta[key] = (icon, label)
+
+        lay.addStretch(1)
+
+        self.divider = QFrame()
+        self.divider.setFixedHeight(1)
+        self.divider.setStyleSheet(f"background: {pal['BORDER']};")
+        lay.addWidget(self.divider)
+
+        self.exit_btn = HoverButton("✕  Выход", ghost=True)
+        self.exit_btn.clicked.connect(on_exit or (lambda: None))
+        lay.addWidget(self.exit_btn)
+
+    # ── Поведение ──
+    def _poll_hover(self):
+        """Наведение/уход курсора с задержками — без резких переключений."""
+        top = QApplication.widgetAt(QCursor.pos())
+        over = top is not None and (top is self or self.isAncestorOf(top))
+        if over:
+            self._collapse_delay.stop()
+            if self._expanded:
+                return
+            if not self._expand_delay.isActive():
+                self._expand_delay.start()
+        else:
+            self._expand_delay.stop()
+            # Не сворачиваем под открытым меню/диалогом — иначе панель «дёргается».
+            if (QApplication.activePopupWidget() is not None
+                    or QApplication.activeModalWidget() is not None):
+                return
+            if self._expanded and not self._collapse_delay.isActive():
+                self._collapse_delay.start()
+
+    def _do_expand(self):
+        self.set_expanded(True)
+
+    def _do_collapse(self):
+        top = QApplication.widgetAt(QCursor.pos())
+        over = top is not None and (top is self or self.isAncestorOf(top))
+        if not self._expanded or over:
+            return
+        if self._anim is not None and self._anim.state() == QAbstractAnimation.Running:
+            return  # не обрываем анимацию на середине: сработает на следующем цикле
+        self.set_expanded(False)
+
+    def _anim_finished(self):
+        self._anim_target = None
+
+    def _sync_view(self):
+        """Обновляет тексты кнопок и видимость заголовков при смене состояния."""
+        expanded = self._expanded
+        self.section_lbl.setVisible(expanded)
+        self.divider.setVisible(expanded)
+        pad = "" if expanded else "padding: 6px 0px; text-align: center;"
+        for key, (icon, label) in self._tool_meta.items():
+            btn = self.buttons[key]
+            btn.setText(f"{icon}  {label}" if expanded else icon)
+            btn.setStyleSheet(pad)
+        self.exit_btn.setText("✕  Выход" if expanded else "✕")
+        self.exit_btn.setStyleSheet(pad)

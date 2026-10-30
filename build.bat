@@ -69,6 +69,8 @@ xcopy "assets" "%DIST%\assets\" /E /I /Y >nul
 if errorlevel 1 ( echo [ERROR] Копирование assets не удалось. & pause & exit /b 1 )
 copy /Y "items.json" "%DIST%\items.json" >nul
 if errorlevel 1 ( echo [ERROR] Копирование items.json не удалось. & pause & exit /b 1 )
+copy /Y "LICENSE" "%DIST%\LICENSE" >nul
+if errorlevel 1 ( echo [ERROR] Копирование LICENSE не удалось. & pause & exit /b 1 )
 
 REM --- 6. Портативный архив -------------------------------------------
 echo [INFO] Создание ChestScanner-portable.zip ...

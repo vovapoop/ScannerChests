@@ -69,3 +69,49 @@ def image_distance_coarse(a, b):
     ga = cv2.cvtColor(a16, cv2.COLOR_BGR2GRAY).astype(np.float64)
     gb = cv2.cvtColor(b16, cv2.COLOR_BGR2GRAY).astype(np.float64)
     return float((1.0 - compute_ssim(ga, gb)) * 5000.0)
+
+
+def phash(img, size=32):
+    """Перцептивный хэш изображения (64 бита) на основе DCT.
+
+    Устойчив к небольшим изменениям яркости, шуму и масштабу.
+    Возвращает int; близость двух изображений оценивается
+    расстоянием Хэмминга (см. hamming).
+    """
+    if img is None or img.size == 0:
+        return 0
+    g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
+    g = cv2.resize(g, (size, size), interpolation=cv2.INTER_AREA).astype(np.float32)
+    g = cv2.GaussianBlur(g, (3, 3), 0)
+    dct = cv2.dct(g)
+    block = dct[:8, :8].copy()
+    block[0, 0] = 0.0  # DC-компонента зависит от общей яркости — неинформативна
+    avg = float(block.mean())
+    h = 0
+    for i in range(block.size):
+        if block.flat[i] > avg:
+            h |= 1 << i
+    return int(h)
+
+
+def hamming(a, b):
+    """Расстояние Хэмминга между двумя целочисленными хэшами."""
+    return int(a ^ b).bit_count()
+
+
+def preprocess_icon(img, clip_limit=2.0, tile_grid=8):
+    """CLAHE-нормализация яркости иконки (канал L в LAB).
+
+    Повышает устойчивость распознавания к освещению и гамме:
+    контраст выравнивается без изменения цветового тона.
+    При некорректном входе возвращается исходное изображение.
+    """
+    if img is None or img.size == 0:
+        return img
+    if len(img.shape) == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    l_ch, a_ch, b_ch = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=float(clip_limit), tileGridSize=(int(tile_grid), int(tile_grid)))
+    l_ch = clahe.apply(l_ch)
+    return cv2.cvtColor(cv2.merge((l_ch, a_ch, b_ch)), cv2.COLOR_LAB2BGR)

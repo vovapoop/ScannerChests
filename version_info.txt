@@ -4,8 +4,8 @@
 # Версия дублируется в installer.iss (#define MyAppVersion).
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 6, 0, 0),
-    prodvers=(1, 6, 0, 0),
+    filevers=(1, 9, 1, 0),
+    prodvers=(1, 9, 1, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -19,12 +19,12 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'Chest Scanner'),
          StringStruct('FileDescription', 'Chest Scanner - распознавание сундуков Minecraft'),
-         StringStruct('FileVersion', '1.6.0'),
+         StringStruct('FileVersion', '1.9.1'),
          StringStruct('InternalName', 'ChestScanner'),
-         StringStruct('LegalCopyright', 'Copyright (c) Chest Scanner'),
+         StringStruct('LegalCopyright', 'Copyright (C) 2026 vovapoop (GPL-3.0)'),
          StringStruct('OriginalFilename', 'ChestScanner.exe'),
          StringStruct('ProductName', 'Chest Scanner'),
-         StringStruct('ProductVersion', '1.6.0')])
+         StringStruct('ProductVersion', '1.9.1')])
     ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]

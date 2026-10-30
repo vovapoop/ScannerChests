@@ -3,7 +3,7 @@
 ; При изменении версии синхронно обновите version_info.txt и MyAppVersion.
 
 #define MyAppName "Chest Scanner"
-#define MyAppVersion "1.6.0"
+#define MyAppVersion "1.9.1"
 #define MyAppPublisher "Chest Scanner"
 #define MyAppExeName "ChestScanner.exe"
 #define MyAppId "{{E9CB4F3D-5A61-4B2A-9E87-1C6D8F0A3B7C}}"
@@ -40,6 +40,7 @@ Source: "dist\ChestScanner\ChestScanner.exe"; DestDir: "{app}"; Flags: ignorever
 Source: "dist\ChestScanner\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\ChestScanner\assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\ChestScanner\items.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\ChestScanner\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

@@ -4,8 +4,10 @@ import os
 import cv2
 import numpy as np
 
-from chest_scanner.logging_setup import logger
 from chest_scanner import paths
+from chest_scanner.image_utils import crop_relative
+from chest_scanner.logging_setup import logger
+
 
 class OcrMixin:
     """Methods extracted from the original ChestReader."""
@@ -26,15 +28,76 @@ class OcrMixin:
         return templates
 
     @staticmethod
-    def make_digit_mask(image):
+    def make_digit_mask(image, bin_thresh=250):
         if image is None or image.size == 0:
             return None
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image.copy()
         if len(np.unique(gray)) <= 3:
             return cv2.inRange(gray, 100, 255)
-        mask = cv2.inRange(gray, 250, 255)
+        mask = cv2.inRange(gray, bin_thresh, 255)
         kernel = np.ones((2, 2), np.uint8)
         return cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+
+    def _find_digit_boxes(self, binary):
+        """Возвращает боксы цифр (x1, y1, x2, y2) из бинарной маски.
+
+        Компоненты шире типичного символа считаются слипшимися цифрами
+        и разделяются по вертикальному профилю.
+        """
+        ih, iw = binary.shape[:2]
+        lc, _, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+        boxes = []
+        for lb in range(1, lc):
+            x, y, w, h, area = stats[lb]
+            if area < 2 or h < 3:
+                continue
+            if w > iw * 0.8 or h > ih * 0.95:
+                continue
+            boxes.append((x, y, w, h))
+        if not boxes:
+            return []
+        boxes.sort(key=lambda b: (b[0], b[1]))
+        median_w = float(np.median([b[2] for b in boxes]))
+        out = []
+        for x, y, w, h in boxes:
+            parts = self._split_component(binary, x, y, w, h, median_w)
+            for sx, sy, sw, sh in parts:
+                out.append((sx, sy, sx + sw, sy + sh))
+        out.sort(key=lambda b: (b[0], b[1]))
+        return out
+
+    @staticmethod
+    def _split_component(binary, x, y, w, h, median_w):
+        """Разделяет широкий компонент маски на отдельные цифры."""
+        if w <= max(2, int(median_w * 1.6)):
+            return [(x, y, w, h)]
+        roi = binary[y:y + h, x:x + w]
+        col_sum = (roi > 0).sum(axis=0)
+        gaps = [i for i in range(1, w) if col_sum[i] == 0]
+        if gaps:
+            boxes, prev = [], 0
+            for g in gaps:
+                if g - prev >= 1:
+                    boxes.append((x + prev, y, g - prev, h))
+                prev = g
+            if w - prev >= 1:
+                boxes.append((x + prev, y, w - prev, h))
+            return [b for b in boxes if b[2] >= 2]
+        # Слипшиеся цифры без разрывов — делим на две равные части.
+        hw = w // 2
+        return [(x, y, hw, h), (x + hw, y, w - hw, h)]
+
+    def _digit_char_boxes(self, ci):
+        """Боксы цифр в области количества; при пустом результате — мягче порог."""
+        binary = self.make_digit_mask(ci)
+        if binary is None:
+            return []
+        boxes = self._find_digit_boxes(binary)
+        if not boxes:
+            binary = self.make_digit_mask(ci, 220)
+            if binary is not None:
+                boxes = self._find_digit_boxes(binary)
+        return boxes
 
     @staticmethod
     def prepare_digit(image):
@@ -98,35 +161,25 @@ class OcrMixin:
         ci = crop_relative(slot_image, self.config["count_roi_in_slot"])
         if ci is None or ci.size == 0:
             return 1
-        binary = self.make_digit_mask(ci)
-        if binary is None:
-            return 1
-        ih, iw = binary.shape[:2]
-        lc, _, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-        chars = []
-        for lb in range(1, lc):
-            x, y, w, h, area = stats[lb]
-            if area < 2 or h < 3:
-                continue
-            if w > iw * 0.8 or h > ih * 0.95:
-                continue
-            chars.append((x, y, x + w, y + h))
+        chars = self._digit_char_boxes(ci)
         if not chars:
             return 1
-        chars.sort(key=lambda c: c[0])
+        ih, iw = ci.shape[:2]
         result = []
         for x1, y1, x2, y2 in chars:
             x1, y1 = max(0, x1 - 1), max(0, y1 - 1)
             x2, y2 = min(iw, x2 + 1), min(ih, y2 + 1)
-            d, _ = self.match_digit(binary[y1:y2, x1:x2])
+            d, _ = self.match_digit(ci[y1:y2, x1:x2])
             if d is not None:
                 result.append(d)
         txt = "".join(result)
         if not txt:
             return 1
+        if any(c not in "0123456789" for c in txt):
+            return 1
         try:
             q = int(txt)
         except ValueError:
             return 1
-        return q if 1 <= q <= 9999 else 1
+        return q if 1 <= q <= 999999 else 1
 

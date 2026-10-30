@@ -1,11 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec: Chest Scanner (onedir, без консоли, UAC-админ).
+"""PyInstaller spec: Chest Scanner (onedir, без консоли).
 
 Особенности:
 - console=False — GUI-режим (аналог pythonw).
-- uac_admin=True — exe запрашивает права администратора при запуске:
-  так гарантированно работают глобальные горячие клавиши (keyboard).
-  Чтобы отключить, замените на uac_admin=False и пересоберите.
+- uac_admin=False — exe НЕ требует прав администратора: глобальные
+  горячие клавиши работают через WinAPI RegisterHotKey (hotkeys.py);
+  библиотека keyboard используется только как фоллбэк.
 - tzdata подключается явно: на Windows нет базы часовых поясов IANA,
   без неё сломается ZoneInfo('Europe/Moscow') в logging_setup.
 - assets/ и items.json НЕ бандлятся внутрь сборки — их копирует build.bat
@@ -51,11 +51,23 @@ a = Analysis(
     pathex=[PROJECT_ROOT],
     binaries=tz_binaries,
     datas=tz_datas,
-    hiddenimports=tz_hidden,
+    # PySide6 собирают встроенные хуки PyInstaller (только нужные модули:
+    # QtCore/QtGui/QtWidgets + QPA-плагин windows). collect_all("PySide6")
+    # не используется: он тащит QtWebEngine и QtPdf (+сотни МБ).
+    # item_pack импортируется внутри функций GUI (_export_item_db/_import_item_db),
+    # поэтому его нужно указать явно, иначе PyInstaller не включит модуль в сборку.
+    hiddenimports=[*tz_hidden, "chest_scanner.item_pack"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["matplotlib"],
+    excludes=["matplotlib", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets",
+              "PySide6.QtPdf", "PySide6.QtPdfWidgets", "PySide6.QtQuick",
+              "PySide6.QtQml", "PySide6.Qt3DCore", "PySide6.QtCharts",
+              "PySide6.QtDataVisualization", "PySide6.QtGraphs",
+              "PySide6.QtMultimedia", "PySide6.QtMultimediaWidgets",
+              "PySide6.QtNetwork", "PySide6.QtOpenGL", "PySide6.QtOpenGLWidgets",
+              "PySide6.QtSvg", "PySide6.QtTest", "PySide6.QtUiTools",
+              "PySide6.QtWebChannel", "PySide6.QtWebSockets"],
     noarchive=False,
 )
 
@@ -79,7 +91,7 @@ exe = EXE(
     entitlements_file=None,
     icon=_ensure_icon(),
     version=os.path.join(PROJECT_ROOT, "version_info.txt"),
-    uac_admin=True,
+    uac_admin=False,
 )
 
 coll = COLLECT(

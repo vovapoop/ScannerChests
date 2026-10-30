@@ -4,7 +4,8 @@
 
 #define MyAppName "Chest Scanner"
 #define MyAppVersion "1.9.1"
-#define MyAppPublisher "Chest Scanner"
+#define MyAppPublisher "vovapoop"
+#define MyAppCopyright "Copyright (C) 2026 vovapoop"
 #define MyAppExeName "ChestScanner.exe"
 #define MyAppId "{{E9CB4F3D-5A61-4B2A-9E87-1C6D8F0A3B7C}}"
 
@@ -13,6 +14,7 @@ AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+AppCopyright={#MyAppCopyright}
 DefaultDirName={localappdata}\Programs\ChestScanner
 DefaultGroupName=Chest Scanner
 DisableProgramGroupPage=yes

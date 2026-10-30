@@ -21,7 +21,7 @@ VSVersionInfo(
          StringStruct('FileDescription', 'Chest Scanner - распознавание сундуков Minecraft'),
          StringStruct('FileVersion', '1.9.1'),
          StringStruct('InternalName', 'ChestScanner'),
-         StringStruct('LegalCopyright', 'Copyright (C) 2026 vovapoop (GPL-3.0)'),
+         StringStruct('LegalCopyright', 'Copyright (C) 2026 vovapoop'),
          StringStruct('OriginalFilename', 'ChestScanner.exe'),
          StringStruct('ProductName', 'Chest Scanner'),
          StringStruct('ProductVersion', '1.9.1')])

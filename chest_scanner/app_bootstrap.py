@@ -3,6 +3,7 @@ import hashlib
 import os
 import subprocess
 import sys
+import traceback
 
 
 # ============================================================
@@ -94,11 +95,13 @@ def _run_cmd(cmd):
 
 
 def _startup_error(err):
+    """?????????? ????????? ? ?????? traceback ?????? ???????."""
     log = os.path.join(BASE_DIR_FOR_APP, "startup_error.log")
     msg = f"{type(err).__name__}: {err}"
+    detail = "".join(traceback.format_exception(type(err), err, err.__traceback__))
     try:
         with open(log, "w", encoding="utf-8") as f:
-            f.write(msg)
+            f.write(detail if detail.strip() else msg)
     except OSError:
         pass
     if os.name == "nt":

@@ -507,9 +507,12 @@
     },
     {
       "name": "Жареная баранина",
-      "images": [],
+      "images": [
+        "items/zharenaya_baranina.png",
+        "items/_scanner_reference_cooked_mutton.png"
+      ],
       "id": "ac7642a3-be33-4475-9a0f-b53eeb91a5e6",
-      "image": "",
+      "image": "items/zharenaya_baranina.png",
       "stack_size": 64,
       "aliases": [],
       "enabled": true,
@@ -535,9 +538,12 @@
     },
     {
       "name": "Жареная курица",
-      "images": [],
+      "images": [
+        "items/zharenaya_kuritsa.png",
+        "items/_scanner_reference_cooked_chicken.png"
+      ],
       "id": "39f3bf70-c71e-4d2f-b628-3f1b07a9b640",
-      "image": "",
+      "image": "items/zharenaya_kuritsa.png",
       "stack_size": 64,
       "aliases": [],
       "enabled": true,
@@ -1921,9 +1927,12 @@
     },
     {
       "name": "Стейк",
-      "images": [],
+      "images": [
+        "items/steyk.png",
+        "items/_scanner_reference_steak.png"
+      ],
       "id": "77e881b3-4986-458a-b679-55502634ec41",
-      "image": "",
+      "image": "items/steyk.png",
       "stack_size": 64,
       "aliases": [],
       "enabled": true,
@@ -2019,9 +2028,12 @@
     },
     {
       "name": "Сырая свинина",
-      "images": [],
+      "images": [
+        "items/syraya_svinina.png",
+        "items/_scanner_reference_raw_pork.png"
+      ],
       "id": "5ebcdb5f-79f7-4b84-8633-69435f035378",
-      "image": "",
+      "image": "items/syraya_svinina.png",
       "stack_size": 64,
       "aliases": [],
       "enabled": true,
@@ -2436,6 +2448,71 @@
       "updated_at": "2026-10-29T15:00:23+00:00",
       "peer_id": "peer_703174dffd784ca99966300952aa1b61",
       "deleted": false
+    },
+    {
+      "id": "6480d348-5946-4478-b21a-c790475b9c90",
+      "name": "Кожа",
+      "stack_size": 64,
+      "images": [
+        "items/Кожа_1.png"
+      ],
+      "image": "items/Кожа_1.png",
+      "aliases": [],
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
+    },
+    {
+      "id": "6f076a51-74db-4f23-99ad-dac108e87677",
+      "name": "Чернильный мешок",
+      "stack_size": 64,
+      "images": [
+        "items/Чернильный мешок_1.png"
+      ],
+      "image": "items/Чернильный мешок_1.png",
+      "aliases": [],
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
+    },
+    {
+      "id": "3bdab089-5774-4134-af68-e95d8eca781e",
+      "name": "Светящийся мешок",
+      "stack_size": 64,
+      "images": [
+        "items/Светящийся мешок_1.png"
+      ],
+      "image": "items/Светящийся мешок_1.png",
+      "aliases": [],
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
+    },
+    {
+      "id": "b25c488f-05fc-4335-b311-3bffc6d53b62",
+      "name": "Яйцо",
+      "stack_size": 64,
+      "images": [
+        "items/Яйцо_1.png"
+      ],
+      "image": "items/Яйцо_1.png",
+      "aliases": [],
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
+    },
+    {
+      "id": "19fec921-2fc8-496a-a158-82aeb20720a8",
+      "name": "Снежок",
+      "stack_size": 64,
+      "images": [
+        "items/Снежок_1.png"
+      ],
+      "image": "items/Снежок_1.png",
+      "aliases": [],
+      "enabled": true,
+      "category": "uncategorized",
+      "tags": []
     }
   ]
 }

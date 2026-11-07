@@ -1,11 +1,12 @@
 """Глобальные горячие клавиши через WinAPI RegisterHotKey.
 
 В отличие от библиотеки `keyboard`, системный хук RegisterHotKey не
-требует прав администратора: регистрация выполняется через
-message-only окно, сообщения обрабатываются отдельным потоком.
+требует прав администратора: регистрация выполняется через message-only
+окно, а WM_HOTKEY разбирает штатный цикл сообщений потока, создавшего
+менеджер (в приложении это цикл событий Qt). Отдельный поток не нужен и
+вреден: сообщения окна доставляются только в очередь создавшего потока.
 
-Колбэки вызываются в потоке сообщений менеджера, поэтому переключение
-в GUI-поток (root.after) — ответственность подписчика.
+Колбэки вызываются в том же потоке, что и `start()`.
 
 Если регистрация недоступна (не Windows или ошибка), менеджер остаётся
 неактивным и приложение откатывается на прежний polling (keyboard).
@@ -15,6 +16,29 @@ import ctypes
 import os
 import threading
 from ctypes import wintypes
+
+
+class _WNDCLASSEXW(ctypes.Structure):
+    """wintypes.WNDCLASSEXW в стандартной библиотеке нет."""
+
+    _fields_ = [
+        ("cbSize", wintypes.UINT),
+        ("style", wintypes.UINT),
+        ("lpfnWndProc", ctypes.c_void_p),
+        ("cbClsExtra", ctypes.c_int),
+        ("cbWndExtra", ctypes.c_int),
+        ("hInstance", wintypes.HINSTANCE),
+        ("hIcon", wintypes.HICON),
+        ("hCursor", wintypes.HANDLE),
+        ("hbrBackground", wintypes.HBRUSH),
+        ("lpszMenuName", wintypes.LPCWSTR),
+        ("lpszClassName", wintypes.LPCWSTR),
+        ("hIconSm", wintypes.HICON),
+    ]
+
+
+CLASS_NAME = "ChestScannerHotkeyWindow"
+ERROR_CLASS_ALREADY_EXISTS = 1410
 
 MOD_ALT = 0x0001
 MOD_CONTROL = 0x0002
@@ -34,6 +58,40 @@ _MOD_FLAGS = (("ctrl", MOD_CONTROL), ("alt", MOD_ALT),
 
 _user32 = None
 _kernel32 = None
+_api_ready = False
+
+
+def _init_api():
+    """Явные прототипы WinAPI: без них ctypes обрезает 64-битные handle.
+
+    GetModuleHandleW с restype по умолчанию (c_int) возвращает усечённый
+    HMODULE, а CreateWindowExW с усечённым HWND даёт access violation.
+    """
+    global _api_ready
+    if _api_ready:
+        return
+    _user32.RegisterClassExW.restype = wintypes.WORD
+    _user32.RegisterClassExW.argtypes = [ctypes.c_void_p]
+    _user32.CreateWindowExW.restype = wintypes.HWND
+    _user32.CreateWindowExW.argtypes = [
+        wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        wintypes.HWND, wintypes.HMENU, wintypes.HINSTANCE, wintypes.LPVOID]
+    _user32.DestroyWindow.restype = wintypes.BOOL
+    _user32.DestroyWindow.argtypes = [wintypes.HWND]
+    _user32.DefWindowProcW.restype = ctypes.c_ssize_t
+    _user32.DefWindowProcW.argtypes = [wintypes.HWND, wintypes.UINT,
+                                       ctypes.c_size_t, ctypes.c_size_t]
+    _user32.RegisterHotKey.restype = wintypes.BOOL
+    _user32.RegisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int,
+                                       wintypes.UINT, wintypes.UINT]
+    _user32.UnregisterHotKey.restype = wintypes.BOOL
+    _user32.UnregisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int]
+    _kernel32.GetModuleHandleW.restype = wintypes.HMODULE
+    _kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+    _kernel32.GetLastError.restype = wintypes.DWORD
+    _kernel32.GetLastError.argtypes = []
+    _api_ready = True
 
 
 def _vk_for_name(name):
@@ -48,10 +106,51 @@ def _vk_for_name(name):
     return None
 
 
+_managers = {}
+_managers_lock = threading.Lock()
+
+
+def _class_proc(hwnd, msg, wparam, lparam):
+    """Оконная процедура класса: находит менеджер по его окну.
+
+    Класс регистрируется один раз на процесс, поэтому привязывать его к
+    конкретному экземпляру нельзя: после пересоздания хоткеев сообщения
+    ушли бы в уже остановленный менеджер.
+    """
+    with _managers_lock:
+        mgr = _managers.get(int(hwnd or 0))
+    if mgr is not None:
+        return mgr._proc(hwnd, msg, wparam, lparam)
+    return _user32.DefWindowProcW(hwnd, msg, ctypes.c_size_t(wparam),
+                                  ctypes.c_size_t(lparam))
+
+
+def _ensure_class():
+    """Регистрирует класс окна один раз на процесс."""
+    if WinHotkeyManager._class_ready:
+        return True
+    wndproc = WinHotkeyManager._WNDPROC(_class_proc)
+    WinHotkeyManager._WNDPROC_THUNKS.append(wndproc)
+    wc = _WNDCLASSEXW()
+    wc.cbSize = ctypes.sizeof(wc)
+    wc.lpfnWndProc = ctypes.cast(wndproc, ctypes.c_void_p)
+    wc.hInstance = _kernel32.GetModuleHandleW(None)
+    wc.lpszClassName = CLASS_NAME
+    if not _user32.RegisterClassExW(ctypes.byref(wc)) \
+            and _kernel32.GetLastError() != ERROR_CLASS_ALREADY_EXISTS:
+        return False
+    WinHotkeyManager._class_ready = True
+    return True
+
+
 class WinHotkeyManager:
     """Глобальные хоткеи Windows; потокобезопасный start/stop/register."""
 
     _WNDPROC = None
+    # Windows хранит указатель на оконную процедуру до конца процесса,
+    # поэтому thunk нельзя отдавать сборщику мусора.
+    _WNDPROC_THUNKS = []
+    _class_ready = False
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -61,6 +160,7 @@ class WinHotkeyManager:
         self._thread = None
         self._next_id = 1
         self._running = False
+        self._wndproc = None
 
     @property
     def available(self):
@@ -83,7 +183,11 @@ class WinHotkeyManager:
                 except Exception:
                     pass
             return 0
-        return _user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+        # wparam/lparam — беззнаковые: без приведения отрицательные
+        # (старший бит) значения не пролезают в аргумент по умолчанию.
+        return _user32.DefWindowProcW(hwnd, msg,
+                                      ctypes.c_size_t(wparam),
+                                      ctypes.c_size_t(lparam))
 
     def _create_window(self):
         try:
@@ -91,24 +195,23 @@ class WinHotkeyManager:
                 WinHotkeyManager._WNDPROC = ctypes.WINFUNCTYPE(
                     ctypes.c_ssize_t, wintypes.HWND, wintypes.UINT,
                     wintypes.WPARAM, wintypes.LPARAM)
-            wc = wintypes.WNDCLASSEXW()
-            wc.cbSize = ctypes.sizeof(wc)
-            wc.lpfnWndProc = self._WNDPROC(self._proc)
-            wc.hInstance = _kernel32.GetModuleHandleW(None)
-            wc.lpszClassName = "ChestScannerHotkeyWindow"
-            atom = _user32.RegisterClassExW(ctypes.byref(wc))
-            if not atom:
+            if not _ensure_class():
                 return None
             hwnd = _user32.CreateWindowExW(
-                0, wc.lpszClassName, "ChestScannerHotkeys", 0,
-                0, 0, 0, 0, HWND_MESSAGE, None, wc.hInstance, None)
-            return hwnd if hwnd else None
+                0, CLASS_NAME, "ChestScannerHotkeys", 0,
+                0, 0, 0, 0, HWND_MESSAGE, None,
+                _kernel32.GetModuleHandleW(None), None)
+            if not hwnd:
+                return None
+            with _managers_lock:
+                _managers[int(hwnd)] = self
+            return hwnd
         except Exception:
             return None
 
     # ── жизненный цикл ──
     def start(self):
-        """Создаёт message-only окно и поток обработки сообщений."""
+        """Создаёт message-only окно; сообщения разбирает цикл вызвавшего потока."""
         global _user32, _kernel32
         if os.name != "nt":
             return False
@@ -120,26 +223,13 @@ class WinHotkeyManager:
                 _kernel32 = ctypes.windll.kernel32
             except Exception:
                 return False
+            _init_api()
             hwnd = self._create_window()
             if not hwnd:
                 return False
             self._hwnd = hwnd
             self._running = True
-            self._thread = threading.Thread(target=self._msg_loop, daemon=True)
-            self._thread.start()
             return True
-
-    def _msg_loop(self):
-        msg = wintypes.MSG()
-        while True:
-            r = _user32.GetMessageW(ctypes.byref(msg), self._hwnd, 0, 0)
-            if r in (0, -1):
-                break
-            _user32.TranslateMessage(ctypes.byref(msg))
-            _user32.DispatchMessageW(ctypes.byref(msg))
-        with self._lock:
-            self._running = False
-            self._hwnd = None
 
     def stop(self):
         with self._lock:
@@ -147,19 +237,24 @@ class WinHotkeyManager:
                 return
             hwnd = self._hwnd
             self._running = False
-        if hwnd is not None:
-            try:
-                _user32.PostMessageW(hwnd, WM_QUIT, 0, 0)
-            except Exception:
-                pass
-        t = self._thread
-        if t is not None:
-            t.join(timeout=2)
-            self._thread = None
-        with self._lock:
-            self._hwnd = None
+            ids = list(self._callbacks)
             self._callbacks.clear()
             self._names.clear()
+            self._hwnd = None
+        for hid in ids:
+            try:
+                _user32.UnregisterHotKey(hwnd, hid)
+            except Exception:
+                pass
+        # Окно создано в потоке вызывающего: уничтожаем его здесь же,
+        # иначе следующая регистрация класса и создание окна дадут мусор.
+        if hwnd is not None:
+            with _managers_lock:
+                _managers.pop(int(hwnd), None)
+            try:
+                _user32.DestroyWindow(hwnd)
+            except Exception:
+                pass
 
     # ── регистрация ──
     def register(self, name, callback):

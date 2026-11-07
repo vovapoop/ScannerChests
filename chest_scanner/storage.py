@@ -115,6 +115,33 @@ def count(db_path):
         return 0
 
 
+def delete_last(db_path):
+    """Удаляет последний скан (по времени) и возвращает его словарь.
+
+    Возвращает None, если база пуста или недоступна. Тай-брейк по rowid
+    для сканов с одинаковым timestamp.
+    """
+    try:
+        conn = _conn(db_path)
+        row = conn.execute(
+            "SELECT id, data FROM chests ORDER BY ts_sort DESC, rowid DESC LIMIT 1"
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    if not row:
+        return None
+    cid, raw = row[0], row[1]
+    try:
+        conn.execute("DELETE FROM chests WHERE id = ?", (cid,))
+        conn.commit()
+    except sqlite3.Error:
+        return None
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
+        return {"id": cid}
+
+
 def stats(db_path, top_n=50):
     """Агрегированная статистика: количество, топ по количеству и частоте."""
     chests = load_all(db_path)

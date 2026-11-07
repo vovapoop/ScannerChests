@@ -1,4 +1,5 @@
 """ChestReader mixin: сканирование сундука и автоскан."""
+import glob
 import hashlib
 import os
 import threading
@@ -55,6 +56,61 @@ class WorkflowMixin:
             storage.add_chest(paths.RESULTS_DB, cd)
         except Exception as e:
             logger.error(f"SQLite-запись результата: {e}")
+
+    # ── Отмена последнего сканирования ──
+
+    def undo_last_scan(self):
+        """Удаляет последний результат из истории и статистики.
+
+        Чистит SQLite-копию, chests.json, а если запись уже уехала в архив
+        results/history — то и там. Возвращает удалённый скан (dict) либо
+        None, если отменять нечего.
+        """
+        try:
+            deleted = storage.delete_last(paths.RESULTS_DB)
+        except Exception as e:
+            logger.error(f"Отмена скана: SQLite: {e}")
+            deleted = None
+        last_id = (deleted or {}).get("id")
+        data = load_json(paths.RESULTS_FILE, {"chests": []})
+        if not isinstance(data, dict):
+            data = {"chests": []}
+        chests = data.setdefault("chests", [])
+        removed = None
+        if last_id:
+            idx = next((i for i, c in enumerate(chests)
+                        if isinstance(c, dict) and c.get("id") == last_id), None)
+            if idx is not None:
+                removed = chests.pop(idx)
+                save_json(paths.RESULTS_FILE, data)
+            else:
+                removed = self._remove_from_newest_archive(last_id)
+        elif chests:
+            # База пуста (потерялась синхронизация) — откатываем по JSON.
+            removed = chests.pop()
+            save_json(paths.RESULTS_FILE, data)
+        removed = removed or deleted
+        if removed:
+            logger.info(f"Скан отменён: {removed.get('timestamp', '?')}, "
+                        f"слотов: {removed.get('occupied_slots', '?')}")
+        else:
+            logger.info("Отмена скана: результатов нет.")
+        return removed
+
+    def _remove_from_newest_archive(self, chest_id):
+        """Удаляет скан из самого нового архива history (фолбэк отката)."""
+        archives = sorted(
+            glob.glob(os.path.join(paths.HISTORY_DIR, "report_*.json")),
+            reverse=True)
+        for path in archives:
+            data = load_json(path, {"chests": []})
+            chests = data.get("chests", []) if isinstance(data, dict) else []
+            for i, c in enumerate(chests):
+                if isinstance(c, dict) and c.get("id") == chest_id:
+                    chests.pop(i)
+                    save_json(path, data)
+                    return c
+        return None
 
     def scan_chest(self, force=False):
         if not self._scan_lock.acquire(blocking=False):
@@ -180,18 +236,27 @@ class WorkflowMixin:
     def start_auto_scan(self):
         if self._auto_scan_active:
             return
+        previous = self._auto_scan_thread
+        if previous is not None and previous.is_alive():
+            logger.warning("Автоскан ещё завершает предыдущую операцию; повторный запуск пропущен")
+            return
         self._auto_scan_active = True
         self._auto_scan_thread = threading.Thread(target=self._auto_scan_loop, daemon=True)
         self._auto_scan_thread.start()
         logger.info("Автоскан запущен")
 
-    def stop_auto_scan(self):
+    def stop_auto_scan(self, timeout=5.0):
         self._auto_scan_active = False
         t = self._auto_scan_thread
-        if t and t.is_alive():
-            t.join(timeout=5)
-        self._auto_scan_thread = None
-        logger.info("Автоскан остановлен")
+        if t and t.is_alive() and t is not threading.current_thread():
+            t.join(timeout=max(0.0, float(timeout)))
+        if t is None or not t.is_alive():
+            self._auto_scan_thread = None
+            logger.info("Автоскан остановлен")
+        else:
+            # Не теряем ссылку: повторный запуск не должен создавать второй
+            # цикл, пока предыдущий ещё завершает текущую операцию.
+            logger.warning("Автоскан ещё завершает текущую операцию")
 
     def _auto_scan_loop(self):
         while self._auto_scan_active:

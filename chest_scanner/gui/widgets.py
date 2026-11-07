@@ -9,6 +9,7 @@ from PySide6.QtCore import (
     QPropertyAnimation,
     Qt,
     QTimer,
+    Signal,
 )
 from PySide6.QtGui import QCursor, QPixmap
 from PySide6.QtWidgets import (
@@ -88,6 +89,8 @@ class SettingCard(QFrame):
 
     def __init__(self, title, subtitle=None, parent=None):
         super().__init__(parent)
+        # Имя по заголовку: интерактивный тур ищет карточки через findChild.
+        self.setObjectName(title)
         self.setProperty("card", True)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(20, 16, 20, 18)
@@ -119,6 +122,8 @@ class TemplateSelector(QWidget):
 
     Сигнал changed(str) — выбран относительный путь (или пустая строка).
     """
+
+    changed = Signal(str)
 
     def __init__(self, value="", title="Выбор файла", parent=None):
         super().__init__(parent)
@@ -157,9 +162,12 @@ class TemplateSelector(QWidget):
         return self._value
 
     def set_value(self, value):
+        old = self._value
         self._value = value or ""
         self.path_lbl.setText(self._value or "—")
         self._update_preview(self._value)
+        if self._value != old:
+            self.changed.emit(self._value)
 
     # ── Внутреннее ──
     def _choose(self):

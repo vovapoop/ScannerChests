@@ -56,7 +56,10 @@ a = Analysis(
     # не используется: он тащит QtWebEngine и QtPdf (+сотни МБ).
     # item_pack импортируется внутри функций GUI (_export_item_db/_import_item_db),
     # поэтому его нужно указать явно, иначе PyInstaller не включит модуль в сборку.
-    hiddenimports=[*tz_hidden, "chest_scanner.item_pack"],
+    # windows_capture — Rust-расширение для захвата окна игры; импортируется
+    # лениво внутри chest_scanner.capture, поэтому PyInstaller его не видит.
+    hiddenimports=[*tz_hidden, "chest_scanner.item_pack", "chest_scanner.capture",
+                   "windows_capture"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

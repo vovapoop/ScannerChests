@@ -3,7 +3,7 @@
 ; При изменении версии синхронно обновите version_info.txt и MyAppVersion.
 
 #define MyAppName "Chest Scanner"
-#define MyAppVersion "1.9.1"
+#define MyAppVersion "1.10.0"
 #define MyAppPublisher "vovapoop"
 #define MyAppCopyright "Copyright (C) 2026 vovapoop"
 #define MyAppExeName "ChestScanner.exe"

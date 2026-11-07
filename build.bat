@@ -15,7 +15,7 @@ if %errorlevel%==0 (
     if %errorlevel%==0 (
         set "PY_LAUNCHER=python"
     ) else (
-        echo [ERROR] Python не найден. Для сборки нужен Python 3.10+.
+        echo [ERROR] Python не найден. Для сборки нужен Python 3.11+.
         pause
         exit /b 1
     )

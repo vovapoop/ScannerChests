@@ -12,7 +12,7 @@ import threading
 import time
 from queue import Empty, Queue
 
-from PySide6.QtCore import QObject, QPoint, Qt, QTimer, Signal
+from PySide6.QtCore import QObject, QPoint, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 from chest_scanner import paths
 from chest_scanner.app_bootstrap import KEYBOARD_AVAILABLE, keyboard
 from chest_scanner.commons import absolute_path, load_json, save_json
-from chest_scanner.config import load_profiles
+from chest_scanner.config import load_profiles, save_profiles
 from chest_scanner.gui.dialogs import (
     ExportDialog,
     FirstRunWizard,
@@ -70,6 +70,7 @@ class _GuiBus(QObject):
     refresh_stats = Signal()
     prompt = Signal(str, str)     # unknown_name, image_path
     progress = Signal(int, int)   # done, total (обработка слотов скана)
+    call = Signal(object)         # вызов произвольной функции в GUI-потоке
 
 
 class ScannerGUI(QMainWindow):
@@ -93,6 +94,9 @@ class ScannerGUI(QMainWindow):
         self.log_queue = Queue()
         self.busy = False
         self.running = True
+        self._workers = set()
+        self._workers_lock = threading.Lock()
+        self._prompt_state = None
         self._settings_dlg = None
         self._hotkey_manager = None
         self._key_timer = QTimer(self)
@@ -104,6 +108,7 @@ class ScannerGUI(QMainWindow):
         self._log_timer.start()
 
         self._bus = _GuiBus(self)
+        self._bus.call.connect(self._run_in_gui)
         self._bus.status.connect(self._apply_status)
         self._bus.refresh_stats.connect(self._refresh_stats)
         self._bus.prompt.connect(self._prompt_gui)
@@ -163,12 +168,7 @@ class ScannerGUI(QMainWindow):
         tools = [
             ("settings", "⚙  Настройки", self.open_settings),
             ("profiles", "👤  Профили", self.open_profile_manager),
-            ("calibrate", "🎯  Калибровка", self._calibrate),
-            ("grid_auto", "🎯  Сетка (авто)", self._auto_detect_grid),
-            ("templates", "🖼  Шаблоны (авто)", self._auto_templates),
             ("history", "📋  История", self.open_history_dialog),
-            ("grid_debug", "🔲  Сетка (отладка)", self._run_grid_debug),
-            ("digits_debug", "🔢  Цифры (отладка)", self._digits_debug),
             ("data", "📁  Данные", self._open_data_menu),
             ("stats", "📊  Статистика", self.open_stats_dialog),
             ("log", "📄  Открыть лог", self._open_log_file),
@@ -194,9 +194,15 @@ class ScannerGUI(QMainWindow):
         items_btn = HoverButton("Предметы", min_height=38)
         items_btn.clicked.connect(self.open_item_database)
         actions.addWidget(items_btn)
+        tour_btn = HoverButton("🎓 Обучение", min_height=38)
+        tour_btn.clicked.connect(self._start_tour)
+        actions.addWidget(tour_btn)
         self.auto_scan_btn = HoverButton("▶ Автоскан", min_height=38)
         self.auto_scan_btn.clicked.connect(self._toggle_auto_scan)
         actions.addWidget(self.auto_scan_btn)
+        self.undo_scan_btn = HoverButton("↩ Отменить скан", min_height=38)
+        self.undo_scan_btn.clicked.connect(self._undo_last_scan)
+        actions.addWidget(self.undo_scan_btn)
         self.scan_progress = QProgressBar()
         self.scan_progress.setObjectName("scanProgress")
         self.scan_progress.setRange(0, 100)
@@ -332,6 +338,14 @@ class ScannerGUI(QMainWindow):
             self._refresh_profile_label()
             self._refresh_stats()
             self._log("✓ Настройка завершена.", GREEN)
+            profiles = load_profiles()
+            if not profiles.get("tour_done", False):
+                answer = QMessageBox.question(
+                    self, "Обучение",
+                    "Пройти обучающий тур по настройкам программы?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if answer == QMessageBox.StandardButton.Yes:
+                    self._start_tour()
         except Exception as e:
             logger.error(f"Мастер первого запуска: {e}", exc_info=True)
             self.showNormal()
@@ -422,6 +436,10 @@ class ScannerGUI(QMainWindow):
         if result:
             self._log(f"✓ Сетка: ({result['x1']},{result['y1']}) -> ({result['x2']},{result['y2']})",
                       GREEN)
+            try:
+                self.reader.reload_profile()
+            except Exception as e:
+                logger.error(f"reload_profile после калибровки: {e}", exc_info=True)
         else:
             self._log("Калибровка отменена.", MUTED)
 
@@ -436,6 +454,10 @@ class ScannerGUI(QMainWindow):
             self._log(f"✓ Сетка (авто): ({result['x1']},{result['y1']}) -> "
                       f"({result['x2']},{result['y2']}) "
                       f"{result['columns']}x{result['rows']} ячеек", GREEN)
+            try:
+                self.reader.reload_profile()
+            except Exception as e:
+                logger.error(f"reload_profile после автоопределения: {e}", exc_info=True)
             self._run_grid_debug()
         else:
             self._log("Автоопределение не удалось. Откройте сундук и "
@@ -476,9 +498,6 @@ class ScannerGUI(QMainWindow):
             self._log("Окно отладки уже открыто.", YELLOW)
             return
         threading.Thread(target=self.reader.show_grid_debug, daemon=True).start()
-
-    def _digits_debug(self):
-        self._run("Отладка цифр", self.reader.save_quantity_debug)
 
     def _toggle_auto_scan(self):
         if self.reader.auto_scan_active:
@@ -586,32 +605,53 @@ class ScannerGUI(QMainWindow):
         self._refresh_stats()
 
     def _run(self, title, func, with_progress=False):
+        if not self.running:
+            return
         if self.busy:
             self._log("Подождите: предыдущая операция выполняется.", YELLOW)
             return
 
+        # Флаг выставляется до запуска потока: два быстрых клика не создадут
+        # две параллельные операции.
+        self.busy = True
+
         def worker():
-            self.busy = True
+            current = threading.current_thread()
             self._bus.status.emit("busy")
             self._log(f"▶ {title}...")
             try:
                 if with_progress:
                     self._safe_after(self._show_scan_progress)
-                func()
-                if with_progress:
+                if self.running:
+                    func()
+                if with_progress and self.running:
                     self._safe_after(self._finish_scan_progress)
-                self._log(f"✓ {title}: готово.", GREEN)
+                if self.running:
+                    self._log(f"✓ {title}: готово.", GREEN)
             except Exception as e:
                 self._log(f"✕ {title}: {type(e).__name__}: {e}", RED)
                 logger.error(f"{title}: {e}", exc_info=True)
             finally:
+                with self._workers_lock:
+                    self._workers.discard(current)
                 self.busy = False
-                self._bus.status.emit("ready")
-                self._bus.refresh_stats.emit()
-                if with_progress:
-                    self._safe_after(self._hide_scan_progress)
+                if self.running:
+                    self._bus.status.emit("ready")
+                    self._bus.refresh_stats.emit()
+                    if with_progress:
+                        self._safe_after(self._hide_scan_progress)
 
-        threading.Thread(target=worker, daemon=True).start()
+        thread = threading.Thread(target=worker, name=f"ChestScanner-{title}",
+                                  daemon=True)
+        with self._workers_lock:
+            self._workers.add(thread)
+        try:
+            thread.start()
+        except Exception:
+            with self._workers_lock:
+                self._workers.discard(thread)
+            self.busy = False
+            raise
 
     def _apply_status(self, state):
         if state == "busy":
@@ -648,6 +688,51 @@ class ScannerGUI(QMainWindow):
         self.scan_cancel_btn.setEnabled(False)
         self._log("Отмена сканирования...", YELLOW)
 
+    def _start_tour(self):
+        """Открывает настройки и запускает обучающий тур."""
+        self.open_settings(start_tour=True)
+        try:
+            pd = load_profiles()
+            if not pd.get("tour_done", False):
+                pd["tour_done"] = True
+                save_profiles(pd)
+        except Exception:
+            pass
+
+    def _undo_last_scan(self):
+        """Удаляет последний результат сканирования (с подтверждением)."""
+        last = None
+        try:
+            data = load_json(paths.RESULTS_FILE, {"chests": []})
+            chests = data.get("chests", []) if isinstance(data, dict) else []
+            if chests and isinstance(chests[-1], dict):
+                last = chests[-1]
+        except Exception:
+            last = None
+        msg = "Удалить последний результат сканирования?"
+        if last:
+            msg = (f"Удалить скан от {last.get('timestamp', '?')} "
+                   f"({last.get('occupied_slots', 0)} слотов)?")
+        if QMessageBox.question(self, "Отмена скана", msg) \
+                != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            removed = self.reader.undo_last_scan()
+        except Exception as e:
+            self._log(f"Ошибка отмены скана: {e}", RED)
+            return
+        if removed:
+            self._log(f"✓ Скан отменён: {removed.get('timestamp', '?')}.", GREEN)
+        else:
+            self._log("Отменять нечего — результатов нет.", YELLOW)
+        self._refresh_stats()
+        try:
+            data = load_json(paths.RESULTS_FILE, {"chests": []})
+            chests = data.get("chests", []) if isinstance(data, dict) else []
+            self._show_last_scan(chests[-1] if chests else None)
+        except Exception:
+            pass
+
     # ── Горячие клавиши ──
     def _start_win_hotkeys(self):
         """Регистрирует горячие клавиши через RegisterHotKey (без UAC)."""
@@ -679,8 +764,23 @@ class ScannerGUI(QMainWindow):
         self._log(f"Windows-хук горячих клавиш активен ({registered}).", GREEN)
         return mgr
 
+    def _run_in_gui(self, func):
+        """Выполняет func в GUI-потоке (слот шины _bus.call)."""
+        try:
+            func()
+        except Exception as e:
+            self._log(f"Ошибка: {e}", PALETTE["RED"])
+
     def _safe_after(self, func):
-        QTimer.singleShot(0, func)
+        # Не ставим новые UI-вызовы в очередь после начала завершения окна.
+        if not getattr(self, "running", True):
+            return
+        # QTimer.singleShot нельзя дёргать из фонового потока: там нет
+        # очереди событий, вызов теряется. Перенаправляем через шину.
+        if QThread.currentThread() is self.thread():
+            QTimer.singleShot(0, func)
+        else:
+            self._bus.call.emit(func)
 
     def _refresh_hotkeys(self, initial=False):
         """Пересоздаёт горячие клавиши; при неудаче WinAPI — polling."""
@@ -769,37 +869,84 @@ class ScannerGUI(QMainWindow):
 
     # ── Неизвестный предмет ──
     def _prompt_unknown_item(self, unknown_name, image_path):
-        """Вызывается из потока сканирования; ждёт ответа пользователя."""
+        """Вызывается из потока сканирования; ожидает ответ с отменой."""
+        if not self.running:
+            return ""
         result = {"name": ""}
         done = threading.Event()
-        self._prompt_state = (done, result)
+        state = (done, result)
+        self._prompt_state = state
         try:
             self._bus.prompt.emit(unknown_name, image_path)
         except Exception:
             done.set()
             return ""
-        done.wait()
-        return result["name"]
+        # Не оставляем worker заблокированным навсегда, если GUI закрывается
+        # или событие показа диалога не может быть обработано.
+        if not done.wait(120.0):
+            logger.warning("Ожидание имени неизвестного предмета отменено по тайм-ауту")
+        if self._prompt_state is state:
+            self._prompt_state = None
+        return result["name"] if self.running else ""
 
     def _prompt_gui(self, unknown_name, image_path):
-        dlg = UnknownItemDialog(unknown_name, image_path, self)
         done, result = getattr(self, "_prompt_state", (None, None))
-        if dlg.exec() == UnknownItemDialog.Accepted:
-            self.reader.unknown_item_category = dlg.category_key
-            if result is not None:
-                result["name"] = dlg.item_name()
-        elif result is not None:
-            result["name"] = ""
-        if done is not None:
-            done.set()
+        if not self.running:
+            if done is not None:
+                done.set()
+            return
+        try:
+            dlg = UnknownItemDialog(unknown_name, image_path, self)
+            if dlg.exec() == UnknownItemDialog.Accepted:
+                self.reader.unknown_item_category = dlg.category_key
+                if result is not None:
+                    result["name"] = dlg.item_name()
+            elif result is not None:
+                result["name"] = ""
+        finally:
+            if done is not None:
+                done.set()
 
     # ── Открытие диалогов ──
-    def open_settings(self):
+    def _apply_settings_runtime(self, tries=0):
+        """Применяет настройки из главного окна, не используя закрытый диалог."""
+        if not self.running:
+            return
+        if self.busy and tries < 20:
+            QTimer.singleShot(500, self, lambda n=tries + 1: self._apply_settings_runtime(n))
+            return
+        try:
+            was_auto = self.reader.auto_scan_active
+            if was_auto:
+                self.reader.stop_auto_scan()
+            self.reader.reload_profile()
+            if was_auto or self.reader.config.get("auto_scan_enabled", False):
+                self.reader.start_auto_scan()
+            self._sync_auto_scan_btn()
+            self._refresh_profile_label()
+            self._refresh_stats()
+            try:
+                self.hotkeys_hint_label.setText(self._hotkeys_hint())
+            except Exception:
+                pass
+            self._refresh_hotkeys()
+        except Exception as e:
+            try:
+                self._log(f"Ошибка применения настроек: {e}", RED)
+            except Exception:
+                pass
+
+    def open_settings(self, start_tour=False):
         if self._settings_dlg is not None and self._settings_dlg.isVisible():
             self._settings_dlg.raise_()
             return
         self._settings_dlg = SettingsDialog(self, self)
-        self._settings_dlg.exec()
+        if start_tour:
+            # Немодально: тур живёт внутри диалога настроек.
+            self._settings_dlg.show()
+            QTimer.singleShot(80, self._settings_dlg.start_tour)
+        else:
+            self._settings_dlg.exec()
 
     def open_profile_manager(self):
         if self.busy:
@@ -901,6 +1048,17 @@ class ScannerGUI(QMainWindow):
         self.running = False
         self._key_timer.stop()
         self._log_timer.stop()
+
+        # Разблокируем worker, ожидающий ответа на диалог неизвестного предмета.
+        prompt_state = self._prompt_state
+        if prompt_state is not None:
+            prompt_state[0].set()
+
+        # Просим текущий скан остановиться до закрытия QApplication.
+        try:
+            self.reader.request_scan_cancel()
+        except Exception:
+            pass
         try:
             if self._hotkey_manager:
                 self._hotkey_manager.stop()
@@ -914,10 +1072,27 @@ class ScannerGUI(QMainWindow):
             pass
         try:
             if self.reader.auto_scan_active:
-                self.reader.stop_auto_scan()
-        except Exception:
-            pass
-        QApplication.instance().quit()
+                self.reader.stop_auto_scan(timeout=1.5)
+        except Exception as e:
+            logger.error(f"Остановка автосканирования при закрытии: {e}",
+                         exc_info=True)
+
+        # Даём рабочим операциям короткое время обработать отмену. Не ждём
+        # бесконечно: GUI должен закрываться даже при зависшем внешнем API.
+        deadline = time.monotonic() + 1.5
+        with self._workers_lock:
+            workers = list(self._workers)
+        for worker in workers:
+            if worker is threading.current_thread():
+                continue
+            worker.join(max(0.0, deadline - time.monotonic()))
+        alive = [w.name for w in workers if w.is_alive()]
+        if alive:
+            logger.warning("При закрытии остались активные worker-потоки: %s",
+                           ", ".join(alive))
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
 
     def run(self):
         self.show()

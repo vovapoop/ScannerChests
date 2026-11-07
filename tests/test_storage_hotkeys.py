@@ -1,7 +1,8 @@
 """Тесты SQLite-хранилища результатов и парсинга горячих клавиш."""
 import os
 
-from chest_scanner import storage
+from chest_scanner import paths, storage
+from chest_scanner.config import validate_config
 from chest_scanner.hotkeys import _vk_for_name
 
 
@@ -64,3 +65,27 @@ def test_vk_for_name():
     assert _vk_for_name("") is None
     assert _vk_for_name("bogus") is None
     assert _vk_for_name(None) is None
+
+
+def test_hotkeys_default_contains_auto_grid():
+    """Дефолтный хоткей автокалибровки — F7."""
+    assert paths.DEFAULT_CONFIG["hotkeys"]["auto_grid"] == "f7"
+
+
+def test_hotkeys_migration_adds_auto_grid():
+    """Старый конфиг без auto_grid получает значение по умолчанию."""
+    cfg, _ = validate_config({
+        "hotkeys": {"toggle_window": "f6", "scan": "f8",
+                    "discord": "f9", "exit": "f10"}})
+    hk = cfg["hotkeys"]
+    assert hk["auto_grid"] == "f7"
+    assert hk["toggle_window"] == "f6"
+    assert hk["scan"] == "f8"
+
+
+def test_hotkeys_auto_grid_custom_preserved():
+    """Пользовательское значение auto_grid не перезаписывается миграцией."""
+    cfg, _ = validate_config({
+        "hotkeys": {"toggle_window": "f6", "scan": "f8", "auto_grid": "ctrl+g",
+                    "discord": "f9", "exit": "f10"}})
+    assert cfg["hotkeys"]["auto_grid"] == "ctrl+g"

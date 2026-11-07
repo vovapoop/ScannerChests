@@ -8,6 +8,7 @@ from chest_scanner.config import activate_profile, load_profiles, validate_confi
 from chest_scanner.image_utils import phash, preprocess_icon
 from chest_scanner.items import normalize_items_db
 from chest_scanner.logging_setup import logger
+from chest_scanner.screenshot import capture_settings, configure_capture
 from chest_scanner.template_cache import template_cache
 
 
@@ -161,6 +162,11 @@ class ScannerBaseMixin:
         for w in warns:
             logger.warning(f"[КОНФИГ] {w}")
         save_json(paths.CONFIG_FILE, self.config)
+        # Источник захвата (весь экран / окно игры) применяется при каждой
+        # загрузке профиля: старт приложения, смена профиля, «Сохранить».
+        configure_capture(self.config.get("capture_source"),
+                          self.config.get("game_window_title"))
+        logger.info(f"[ЗАХВАТ] {capture_settings()}")
         self.items_db = normalize_items_db(load_json(paths.ITEMS_FILE, {"items": []}))
         save_json(paths.ITEMS_FILE, self.items_db)
         self.ref_w, self.ref_h = self.config["reference_screen_size"]

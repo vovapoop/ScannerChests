@@ -12,6 +12,11 @@ from chest_scanner.screenshot import screenshot_bgr, screenshot_region_bgr
 class DetectionMixin:
     """Methods extracted from the original ChestReader."""
 
+    # Размер интерфейса сундука зависит от GUI Scale в игре и от разрешения:
+    # шаблон, снятый при одном масштабе, при другом даёт score ниже порога
+    # (0.85–0.87 на реальных скриншотах), поэтому шаблон масштабируется под
+    # размер найденной сетки (см. scale_from_grid_width).
+
     def auto_generate_templates(self, force=False):
         screen = screenshot_bgr()
         sh, sw = screen.shape[:2]
@@ -97,28 +102,54 @@ class DetectionMixin:
             return False
         return True
 
+    @staticmethod
+    def _template_at_scale(tpl_gray, scale):
+        """Шаблон, приведённый к нужному масштабу интерфейса."""
+        if abs(scale - 1.0) < 1e-3:
+            return tpl_gray
+        size = (max(1, int(round(tpl_gray.shape[1] * scale))),
+                max(1, int(round(tpl_gray.shape[0] * scale))))
+        return cv2.resize(tpl_gray, size, interpolation=cv2.INTER_AREA)
+
+    def scale_from_grid_width(self, width):
+        """Масштаб интерфейса по ширине найденной сетки.
+
+        Настроенная сетка снята при каком-то размере интерфейса. Если
+        найденная сетка шире или уже настроенной, значит, изменился
+        GUI Scale в игре (или разрешение) — шаблон тоже нужно масштабировать.
+        """
+        base = float(self.grid.get("x2", 0) or 0) - float(self.grid.get("x1", 0) or 0)
+        if base <= 0 or not width:
+            return getattr(self, "_chest_match_scale", None) or 1.0
+        return min(2.5, max(0.4, float(width) / base))
+
     def chest_is_open(self, screen):
+        """Открыт ли сундук: шаблон в нужном масштабе найден в зоне сетки."""
         if self.chest_template is None:
             return False
+        scale = getattr(self, "_chest_match_scale", None) or 1.0
         sg = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
         tg = cv2.cvtColor(self.chest_template, cv2.COLOR_BGR2GRAY)
-        match = self._match_template_gray(sg, tg)
+        match = self._match_template_gray(sg, self._template_at_scale(tg, scale))
         grid = self.get_grid_rect(screen)
         band = self._title_band(grid["x"], grid["y"],
                                  grid["width"], grid["height"])
         return self._match_in_title_band(
             match, band, self.config["chest_template_threshold"],
-            "chest_is_open")
+            f"chest_is_open (scale={scale:.2f})")
 
     def chest_is_open_fast(self):
+        """Быстрая проверка по прошлой позиции сундука."""
         if self.chest_template is None:
             return False
         if self._last_chest_pos is None:
             return self.chest_is_open(screenshot_bgr())
         pos = self._last_chest_pos
+        scale = getattr(self, "_chest_match_scale", None) or 1.0
         band = self._title_band(pos["x"], pos["y"],
                                  pos["width"], pos["height"])
         tg = cv2.cvtColor(self.chest_template, cv2.COLOR_BGR2GRAY)
+        tg = self._template_at_scale(tg, scale)
         th_, tw_ = tg.shape[:2]
         # Захватываем зону вокруг полосы заголовка с запасом так, чтобы
         # любой матч с левым верхним углом внутри полосы помещался целиком.

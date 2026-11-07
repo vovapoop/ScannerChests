@@ -8,3 +8,5 @@ tzdata>=2024.1
 # PySide6-Essentials вместо метапакета PySide6: QtCore/QtGui/QtWidgets
 # покрывают весь GUI (включая QSystemTrayIcon), а WebEngine/Addons не нужны.
 PySide6-Essentials>=6.7,<7
+# Захват окна игры (Windows Graphics Capture): снимок без перекрывающих окон
+windows-capture>=2,<3

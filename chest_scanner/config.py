@@ -95,7 +95,17 @@ def validate_config(data):
                 cfg["chest_grid"] = paths.DEFAULT_CONFIG["chest_grid"]
                 warnings.append(f"chest_grid.{k} повреждён")
                 break
+        else:
+            # Проверка геометрии: при корректной калибровке ячейки примерно
+            # квадратные. Резко вытянутая «сетка» ломает поиск заголовка.
+            cw = (grid["x2"] - grid["x1"]) / max(1, grid["columns"])
+            ch = (grid["y2"] - grid["y1"]) / max(1, grid["rows"])
+            if not (0.4 <= cw / ch <= 2.5):
+                cfg["chest_grid"] = paths.DEFAULT_CONFIG["chest_grid"]
+                warnings.append("chest_grid: ячейки не квадратные — сброшено "
+                                "на стандартную сетку, нужна перекалибровка")
     for field, lo, hi in [("chest_template_threshold", 0.01, 1.0),
+                          ("chest_template_scale", 0.4, 2.5),
                           ("empty_slot_threshold", 1, 100000),
                           ("item_match_threshold", 1, 1000000),
                           ("item_match_margin", 0, 100000),
@@ -116,6 +126,12 @@ def validate_config(data):
         if not isinstance(cfg.get(field), bool):
             cfg[field] = paths.DEFAULT_CONFIG[field]
             warnings.append(f"{field} повреждён (ожидался bool)")
+    if cfg.get("capture_source") not in ("screen", "window"):
+        cfg["capture_source"] = paths.DEFAULT_CONFIG["capture_source"]
+        warnings.append("capture_source вне списка screen/window")
+    if not isinstance(cfg.get("game_window_title"), str) or not cfg["game_window_title"].strip():
+        cfg["game_window_title"] = paths.DEFAULT_CONFIG["game_window_title"]
+        warnings.append("game_window_title повреждён")
     for roi in ("icon_roi_in_slot", "count_roi_in_slot"):
         r = cfg.get(roi)
         if not isinstance(r, list) or len(r) != 4 or not all(isinstance(x, (int, float)) for x in r):

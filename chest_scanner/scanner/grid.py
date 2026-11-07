@@ -1,5 +1,7 @@
 """ChestReader mixin: сетка, слоты, калибровка и отладка."""
+import glob
 import os
+import time
 
 import cv2
 import numpy as np
@@ -7,29 +9,32 @@ import numpy as np
 from chest_scanner import paths
 from chest_scanner.commons import save_json
 from chest_scanner.image_utils import crop_relative
-from chest_scanner.logging_setup import logger
+from chest_scanner.logging_setup import logger, now_moscow
 from chest_scanner.screenshot import screenshot_bgr
 
 
 class GridMixin:
     """Methods extracted from the original ChestReader."""
 
-    def get_grid_rect(self, screen):
+    def get_grid_rect(self, screen, grid=None):
+        """Прямоугольник сетки; `grid` позволяет подменить координаты
+        (используется живым предпросмотром настроек без мутации self.grid)."""
+        g = grid or self.grid
         sh, sw = screen.shape[:2]
         sx, sy = sw / self.ref_w, sh / self.ref_h
-        x1 = round(self.grid["x1"] * sx)
-        y1 = round(self.grid["y1"] * sy)
-        x2 = round(self.grid["x2"] * sx)
-        y2 = round(self.grid["y2"] * sy)
+        x1 = round(g["x1"] * sx)
+        y1 = round(g["y1"] * sy)
+        x2 = round(g["x2"] * sx)
+        y2 = round(g["y2"] * sy)
         if x2 < x1:
             x1, x2 = x2, x1
         if y2 < y1:
             y1, y2 = y2, y1
         return {"x": x1, "y": y1, "width": x2 - x1, "height": y2 - y1,
-                "columns": self.grid["columns"], "rows": self.grid["rows"]}
+                "columns": g["columns"], "rows": g["rows"]}
 
-    def get_slots(self, screen):
-        grid = self.get_grid_rect(screen)
+    def get_slots(self, screen, grid=None):
+        grid = self.get_grid_rect(screen, grid)
         sw = grid["width"] / grid["columns"]
         sh = grid["height"] / grid["rows"]
         slots = []
@@ -49,6 +54,14 @@ class GridMixin:
     #: Допустимые диапазоны для запасного автоопределения columns/rows.
     AUTO_COLUMNS_RANGE = (2, 18)
     AUTO_ROWS_RANGE = (1, 12)
+
+    #: Повторы автоопределения: временное перекрытие (тултип предмета,
+    #: анимация открытия сундука) не должно срывать калибровку.
+    AUTO_DETECT_ATTEMPTS = 3
+    AUTO_DETECT_RETRY_DELAY = 0.25
+
+    #: Сколько диагностических снимков неудачного автоопределения хранить.
+    GRID_FAILURE_KEEP = 5
 
     def detect_grid_rect(self, screen):
         """Ищет прямоугольник сетки сундука на скриншоте.
@@ -70,6 +83,7 @@ class GridMixin:
         vlines, hlines = self._grid_line_masks(screen)
         candidates = self._grid_candidates(vlines, hlines)
         if not candidates:
+            logger.debug("Сетка: линии сетки не найдены")
             return None
         preset_cols = int(self.grid.get("columns", 9))
         preset_rows = int(self.grid.get("rows", 6))
@@ -79,7 +93,40 @@ class GridMixin:
             if info is not None:
                 verified.append((x, y, w, h, info))
         if not verified:
+            logger.debug(f"Сетка: кандидатов {len(candidates)}, ни один не "
+                         f"прошёл проверку проекциями")
             return None
+        # Кандидат, над которым действительно виден заголовок сундука,
+        # надёжнее пресета: при перекрытии части сетки (тултип предмета)
+        # иначе можно принять за сундук инвентарь игрока ниже.
+        titled = [c for c in verified if self._candidate_has_chest_title(screen, c[4])]
+        if titled:
+            verified = titled
+        elif getattr(self, "chest_template", None) is not None:
+            # Шаблон есть, но ни над одним кандидатом нет заголовка сундука.
+            # Это либо чужой интерфейс (инвентарь игрока, другой контейнер),
+            # либо шаблон устарел: он снят при другом GUI Scale и в текущем
+            # размере интерфейса заголовок уже не совпадает. Во втором случае
+            # запрет блокировал бы калибровку навсегда (после смены GUI Scale
+            # или разрешения шаблон не совпадает никогда), поэтому сверяем
+            # найденные сетки с сохранённой: масштаб и положение. Если ни
+            # одна не совпала по обоим признакам, сохранённые координаты
+            # устарели и шаблон ничего не доказывает — сетку принимаем по
+            # геометрии, шаблон будет переснят сразу после калибровки.
+            configured = self._configured_grid_rect(screen)
+            aligned = [c for c in verified
+                       if self._overlap_ratio(c[:4], configured) >= 0.5]
+            same_scale = [c for c in verified
+                          if abs(self.scale_from_grid_width(c[4]["width"]) - 1.0) <= 0.02]
+            if aligned and same_scale:
+                logger.debug("Сетка: над кандидатами нет заголовка сундука")
+                return None
+            scale = self.scale_from_grid_width(verified[0][4]["width"])
+            logger.warning(
+                f"Сетка: шаблон сундука устарел (масштаб интерфейса "
+                f"{scale:.2f}) — сетка принята по геометрии, "
+                f"шаблон будет переснят")
+            self._chest_match_scale = scale
         # Приоритет: кандидаты, совпавшие с пресетом (±1 ячейка), среди
         # них — самый верхний на экране (GUI сундука выше инвентаря игрока).
         preset = [c for c in verified
@@ -94,6 +141,29 @@ class GridMixin:
         return {"x": info["x"], "y": info["y"],
                 "width": info["width"], "height": info["height"],
                 "columns": info["columns"], "rows": info["rows"]}
+
+    def _configured_grid_rect(self, screen):
+        """Настроенная сетка в координатах кадра (или None).
+
+        Нужна, чтобы отличить устаревший шаблон от чужого интерфейса:
+        если найденная сетка стоит не там, где настроенная, сохранённые
+        координаты точно устарели — шаблон тогда ничего не доказывает.
+        """
+        try:
+            return self.get_grid_rect(screen)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _overlap_ratio(rect, other):
+        """Доля площади rect, попавшая в other (1.0, если other нет)."""
+        if other is None:
+            return 1.0
+        x, y, w, h = rect
+        ix = max(0, min(x + w, other["x"] + other["width"]) - max(x, other["x"]))
+        iy = max(0, min(y + h, other["y"] + other["height"]) - max(y, other["y"]))
+        area = float(w * h)
+        return (ix * iy) / area if area > 0 else 0.0
 
     def _grid_line_masks(self, screen):
         """Маски вертикальных и горизонтальных линий сетки.
@@ -184,6 +254,13 @@ class GridMixin:
         hp = self._line_peaks(hsub, axis=1, min_len=max(10, int(w * 0.5)))
         if len(vp) < 2 or len(hp) < 2:
             return None
+        # На мелком интерфейсе часть линий может потеряться, а рядом появиться
+        # лишние пики (границы панели, края предметов). Оставляем самый длинный
+        # равномерный ряд линий.
+        vp = self._regular_subset(vp)
+        hp = self._regular_subset(hp)
+        if len(vp) < 2 or len(hp) < 2:
+            return None
         if not self._peaks_regular(vp) or not self._peaks_regular(hp):
             return None
         # Крайние линии сетки часто сливаются с рамкой контейнера и не
@@ -213,6 +290,51 @@ class GridMixin:
                 "width": x2 - x1, "height": y2 - y1,
                 "columns": cols, "rows": rows}
 
+    def _candidate_has_chest_title(self, screen, info):
+        """Проверяет, что над найденной сеткой есть заголовок сундука.
+
+        Использует шаблон сундука и ту же полосу допуска, что и
+        chest_is_open(), но относительно координат кандидата. Если шаблона
+        или матчера нет (например, в тестах), проверка не выполняется и
+        возвращается True.
+        """
+        tpl = getattr(self, "chest_template", None)
+        matcher = getattr(self, "_match_template_gray", None)
+        band_ok = getattr(self, "_match_in_title_band", None)
+        if tpl is None or matcher is None or band_ok is None:
+            return True
+        # Размер интерфейса сундука может отличаться (GUI Scale), поэтому
+        # масштаб шаблона оцениваем по ширине найденной сетки.
+        scale = self.scale_from_grid_width(info["width"])
+        if abs(scale - 1.0) > 1e-3:
+            tpl = cv2.resize(tpl, (max(1, int(round(tpl.shape[1] * scale))),
+                                   max(1, int(round(tpl.shape[0] * scale)))),
+                             interpolation=cv2.INTER_AREA)
+        th, tw = tpl.shape[:2]
+        band = self._title_band(info["x"], info["y"],
+                                 info["width"], info["height"])
+        m = 40
+        x = max(0, band[0] - m)
+        y = max(0, band[1] - m)
+        w = min(screen.shape[1] - x, (band[2] - band[0]) + tw + m * 2)
+        h = min(screen.shape[0] - y, (band[3] - band[1]) + th + m * 2)
+        if w < tw or h < th:
+            return False
+        region = screen[y:y + h, x:x + w]
+        gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+        match = matcher(gray, cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY))
+        if match is None:
+            return False
+        match = (match[0], match[1] + x, match[2] + y)
+        ok = band_ok(match, band,
+                     self.config.get("chest_template_threshold", 0.88),
+                     f"grid_candidate (scale={scale:.2f})")
+        if ok:
+            # Запоминаем масштаб: дальше chest_is_open() и fast-проверка
+            # ищут шаблон сразу в нужном размере.
+            self._chest_match_scale = scale
+        return ok
+
     @staticmethod
     def _extend_peaks(peaks, lo, hi):
         """Дополняет пики виртуальными крайними линиями по регулярному шагу.
@@ -234,6 +356,32 @@ class GridMixin:
             guard += 1
         return out
 
+
+    @staticmethod
+    def _regular_subset(peaks, tol=0.25):
+        """Самый длинный равномерный ряд пиков (шаг ± tol от медианного).
+
+        Пропущенная линия или лишний пик (рамка панели, край предмета)
+        ломали бы весь кандидат — здесь они отбрасываются.
+        """
+        if len(peaks) < 3:
+            return peaks
+        step = float(np.median(np.diff(peaks)))
+        if step <= 0:
+            return peaks
+        best = []
+        for start in range(len(peaks) - 1):
+            chain = [peaks[start]]
+            for nxt in peaks[start + 1:]:
+                diff = nxt - chain[-1]
+                if abs(diff - step) <= step * tol:
+                    chain.append(nxt)
+                elif diff > step * (1 + tol):
+                    break
+            if len(chain) > len(best):
+                best = chain
+        return best
+
     def auto_detect_grid(self):
         """Однократное автоопределение сетки открытого сундука.
 
@@ -241,13 +389,29 @@ class GridMixin:
         reference_screen_size и сохраняет их в config.json. Возвращает
         словарь chest_grid или None при неудаче.
         """
-        screen = screenshot_bgr()
-        if self.chest_template is not None and not self.chest_is_open(screen):
-            logger.warning("Автоопределение: сундук не открыт "
-                           "(шаблон сундука не найден на экране)")
-            return None
-        rect = self.detect_grid_rect(screen)
+        rect = None
+        screen = None
+        for attempt in range(self.AUTO_DETECT_ATTEMPTS):
+            screen = screenshot_bgr()
+            # Снимок храним для отладочного окна: при неудаче GUI покажет
+            # ровно тот кадр, на котором не нашлась сетка.
+            self._last_auto_grid_screen = screen
+            if self.chest_template is not None and not self.chest_is_open(screen):
+                # Не прерываемся: размер интерфейса мог измениться (GUI Scale),
+                # тогда старый шаблон не совпадает, но сетку всё равно можно
+                # найти и подтвердить заголовком уже в новом масштабе.
+                logger.warning("Автоопределение: шаблон сундука не совпал при "
+                               "текущем размере интерфейса — продолжаем поиск "
+                               "сетки")
+            rect = self.detect_grid_rect(screen)
+            if rect is not None:
+                break
+            logger.debug(f"Автоопределение: попытка {attempt + 1}/"
+                         f"{self.AUTO_DETECT_ATTEMPTS} не нашла сетку")
+            if attempt + 1 < self.AUTO_DETECT_ATTEMPTS:
+                time.sleep(self.AUTO_DETECT_RETRY_DELAY)
         if rect is None:
+            self._save_grid_failure(screen, "not_found")
             logger.warning("Автоопределение: сетка сундука не найдена. "
                            "Убедитесь, что интерфейс сундука открыт и виден целиком.")
             return None
@@ -259,23 +423,77 @@ class GridMixin:
                      "columns": int(rect["columns"]), "rows": int(rect["rows"])}
         self.config["chest_grid"] = self.grid
         save_json(paths.CONFIG_FILE, self.config)
+        scale = getattr(self, "_chest_match_scale", None) or 1.0
+        old_scale = float(self.config.get("chest_template_scale", 1.0) or 1.0)
+        # Если размер интерфейса отличается от того, при котором снят шаблон,
+        # старый шаблон больше не подходит — переснимаем его вместе с сеткой.
+        stale_templates = abs(scale - old_scale) > 0.02
         logger.info(f"Автоопределение сетки: ({self.grid['x1']},{self.grid['y1']})"
                     f" -> ({self.grid['x2']},{self.grid['y2']}), "
-                    f"{self.grid['columns']}x{self.grid['rows']} ячеек")
+                    f"{self.grid['columns']}x{self.grid['rows']} ячеек, "
+                    f"масштаб интерфейса {scale:.2f}")
         try:
-            created = self.auto_generate_templates(force=False)
+            created = self.auto_generate_templates(force=stale_templates)
             if created:
                 logger.info(f"Автоопределение: созданы шаблоны {', '.join(created)}")
         except Exception as e:
             logger.error(f"Автоопределение: генерация шаблонов: {e}", exc_info=True)
+        if stale_templates:
+            # Шаблоны пересняты в текущем масштабе — дальше ищем 1:1.
+            self._chest_match_scale = 1.0
+        self.config["chest_template_scale"] = 1.0
+        save_json(paths.CONFIG_FILE, self.config)
         return dict(self.grid)
 
-    def show_grid_debug(self):
+    def _save_grid_failure(self, screen, reason="not_found"):
+        """Сохраняет снимок неудачного автоопределения для диагностики.
+
+        Хранится не больше GRID_FAILURE_KEEP последних файлов, чтобы
+        папка не разрасталась.
+        """
+        try:
+            d = os.path.join(paths.RESULTS_DIR, "grid_debug")
+            os.makedirs(d, exist_ok=True)
+            if screen is None or getattr(screen, "size", 0) == 0:
+                return None
+            ts = now_moscow().strftime("%Y%m%d_%H%M%S")
+            p = os.path.join(d, f"auto_grid_fail_{reason}_{ts}.png")
+            if not cv2.imwrite(p, screen):
+                return None
+            logger.warning(f"Автоопределение: снимок экрана сохранён "
+                           f"для диагностики: {p}")
+            keep = max(1, int(self.GRID_FAILURE_KEEP))
+            files = sorted(glob.glob(os.path.join(d, "auto_grid_fail_*.png")))
+            for old in files[:-keep]:
+                try:
+                    os.remove(old)
+                except OSError:
+                    pass
+            return p
+        except Exception as e:
+            logger.error(f"Автоопределение: не удалось сохранить снимок: {e}",
+                         exc_info=True)
+            return None
+
+    def show_grid_debug(self, screen=None):
+        """Показывает отладочное окно по снимку экрана.
+
+        screen передаётся, когда снимок уже сделан в нужный момент
+        (например, пока окно программы скрыто). Если не передан, снимок
+        делается здесь — тогда в кадр попадёт всё, что есть на экране.
+        """
         if self._grid_debug_active:
             return
         self._grid_debug_active = True
         try:
-            screen = screenshot_bgr()
+            if not isinstance(screen, np.ndarray):
+                if screen is not None:
+                    logger.warning("Grid debug: ???????? ???? ndarray, ??????? %s; "
+                                   "????? ?????? ????? ??????", type(screen).__name__)
+                screen = screenshot_bgr()
+            if screen is None or screen.size == 0 or screen.ndim < 2:
+                logger.warning("Grid debug: ?????? ?????? ??????????")
+                return
             sh, sw = screen.shape[:2]
             grid = self.get_grid_rect(screen)
             base = screen.copy()
@@ -456,4 +674,132 @@ class GridMixin:
                 lg = cv2.resize(img, None, fx=15, fy=15, interpolation=cv2.INTER_NEAREST)
                 cv2.imwrite(os.path.join(dd, f"slot_r{r}_c{c}_{sfx}.png"), lg)
         logger.debug(f"Области количества: {dd}")
+
+    # ── Проверка настроек областей иконки и цифр ──
+
+    #: Сколько заполненных слотов показывать в отчёте проверки.
+    ROI_CHECK_SLOTS = 4
+
+    def diagnose_roi_settings(self, screen=None, icon_roi=None, count_roi=None,
+                              grid=None):
+        """Проверка настроек областей иконки и цифр без полного скана.
+
+        Возвращает {"overlay", "slots", "issues"}:
+          overlay — снимок области сетки; белая рамка — слот, зелёная —
+                    область иконки, жёлтая — область цифр;
+          slots   — до ROI_CHECK_SLOTS заполненных слотов с обрезками
+                    иконки/цифр, бинарной маской и распознанным числом;
+          issues  — список замечаний (последний элемент — итог).
+
+        `icon_roi`/`count_roi` позволяют проверить значения прямо из полей
+        настроек до их сохранения в конфиг.
+        """
+        issues = []
+        if icon_roi is None:
+            icon_roi = self.config.get("icon_roi_in_slot")
+        if count_roi is None:
+            count_roi = self.config.get("count_roi_in_slot")
+
+        def _check_roi(roi, title):
+            if not isinstance(roi, (list, tuple)) or len(roi) != 4:
+                _problem(f"{title}: нужно 4 числа (X, Y, Ширина, Высота).")
+                return False
+            x, y, w, h = roi
+            if min(x, y, w, h) < 0:
+                _problem(f"{title}: отрицательные значения недопустимы.")
+                return False
+            if w <= 0 or h <= 0:
+                _problem(f"{title}: ширина и высота должны быть > 0.")
+                return False
+            if x + w > 1.0001 or y + h > 1.0001:
+                _problem(
+                    f"{title}: X+Ширина или Y+Высота выходят за пределы слота (0–1).")
+                return False
+            return True
+
+        problems = 0
+
+        def _problem(text):
+            nonlocal problems
+            problems += 1
+            issues.append(text)
+
+        rois_ok = _check_roi(icon_roi, "Область иконки")
+        rois_ok = _check_roi(count_roi, "Область цифр") and rois_ok
+        digit_templates_missing = not self.digit_templates
+        if digit_templates_missing:
+            issues.append("Шаблоны цифр не загружены (папка assets/digits) — "
+                          "количество распознаваться не будет.")
+
+        if screen is None:
+            screen = screenshot_bgr()
+        grid_rect = self.get_grid_rect(screen, grid)
+        overlay = None
+        slots_out = []
+        filled = 0
+        if rois_ok:
+            # `grid` — переопределение в стиле конфига (x1..rows) либо None.
+            for slot in self.get_slots(screen, grid):
+                si = slot["image"]
+                if si is None or si.size == 0 or self._slot_looks_empty(si):
+                    continue
+                filled += 1
+                r, c = slot["row"] + 1, slot["column"] + 1
+                icon = crop_relative(si, icon_roi)
+                count = crop_relative(si, count_roi)
+                if icon is None or icon.size == 0:
+                    _problem(f"Слот r{r} c{c}: обрезка иконки пустая.")
+                binary = self.make_digit_mask(count) if count is not None else None
+                if binary is None or not np.count_nonzero(binary):
+                    _problem(f"Слот r{r} c{c}: в области цифр нет светлых "
+                             "пикселей — цифра обрезана или область неверна.")
+                slots_out.append({
+                    "row": r, "column": c, "icon": icon, "count": count,
+                    "binary": binary,
+                    "quantity": self.read_quantity(si)})
+                if overlay is None:
+                    overlay = self._roi_overlay(screen, grid_rect, slot,
+                                                icon_roi, count_roi)
+                if len(slots_out) >= self.ROI_CHECK_SLOTS:
+                    break
+        if filled == 0:
+            _problem("Заполненных слотов не найдено — откройте сундук "
+                     "с предметами и повторите проверку.")
+        if problems == 0:
+            if digit_templates_missing:
+                issues.append("Области заданы корректно; для распознавания "
+                              "количества добавьте шаблоны цифр.")
+            else:
+                issues.append("Проблем не обнаружено: области заданы корректно.")
+        return {"overlay": overlay, "slots": slots_out, "issues": issues}
+
+    def _slot_looks_empty(self, si):
+        """Заполненность слота: шаблон пустого слота либо эвристика по яркости."""
+        if getattr(self, "empty_slot_template", None) is not None \
+                and hasattr(self, "is_empty_slot"):
+            return self.is_empty_slot(si)
+        gray = cv2.cvtColor(si, cv2.COLOR_BGR2GRAY)
+        # Пустой слот тёмный и однородный; ярких пикселей почти нет.
+        bright = int(np.count_nonzero(gray > 40))
+        return bright < max(1, gray.size // 40)
+
+    def _roi_overlay(self, screen, grid, slot, icon_roi, count_roi):
+        """Кадр сетки с рамками областей иконки/цифр в указанном слоте."""
+        x, y = grid["x"], grid["y"]
+        area = screen[y:y + grid["height"], x:x + grid["width"]].copy()
+        sx1, sy1 = slot["x1"] - x, slot["y1"] - y
+        sx2, sy2 = slot["x2"] - x, slot["y2"] - y
+        sw, sh = sx2 - sx1, sy2 - sy1
+        if sw <= 0 or sh <= 0:
+            return None
+
+        def _rect(roi):
+            return (sx1 + int(roi[0] * sw), sy1 + int(roi[1] * sh),
+                    sx1 + int((roi[0] + roi[2]) * sw),
+                    sy1 + int((roi[1] + roi[3]) * sh))
+
+        cv2.rectangle(area, (sx1, sy1), (sx2, sy2), (255, 255, 255), 1)
+        cv2.rectangle(area, _rect(icon_roi)[:2], _rect(icon_roi)[2:], (0, 255, 0), 2)
+        cv2.rectangle(area, _rect(count_roi)[:2], _rect(count_roi)[2:], (0, 220, 255), 2)
+        return area
 

@@ -3,6 +3,7 @@ import os
 import threading
 
 import cv2
+import numpy as np
 
 from chest_scanner.commons import absolute_path
 from chest_scanner.image_utils import resize_image
@@ -26,7 +27,10 @@ class TemplateCache:
                 return None
             if path in self._cache and self._mtime.get(path) == mt:
                 return self._cache[path]
-            img = cv2.imread(full, cv2.IMREAD_COLOR)
+            try:
+                img = cv2.imdecode(np.fromfile(full, dtype=np.uint8), cv2.IMREAD_COLOR)
+            except Exception:
+                img = cv2.imread(full, cv2.IMREAD_COLOR)
             if img is None:
                 return None
             self._cache[path] = img

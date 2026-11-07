@@ -50,12 +50,19 @@ DEFAULT_CONFIG = {
     "setup_complete": False,
     "reference_screen_size": [1920, 1080],
     "chest_template": "assets/chest_open.png",
+    # Масштаб шаблона сундука относительно текущего интерфейса игры.
+    # 1.0 — шаблон снят при нынешнем размере интерфейса (GUI Scale).
+    "chest_template_scale": 1.0,
     "empty_slot_template": "assets/empty_slot.png",
-    "chest_grid": {"x1": 798, "y1": 351, "x2": 1122, "y2": 567,
+    # Текущая проверенная калибровка для окна 1920×1080.
+    "chest_grid": {"x1": 798, "y1": 352, "x2": 1122, "y2": 568,
                     "columns": 9, "rows": 6},
-    "icon_roi_in_slot": [0.10, 0.08, 0.80, 0.67],
-    "count_roi_in_slot": [0.30, 0.40, 0.67, 0.58],
+    "icon_roi_in_slot": [0.058823529411764705, 0.029411764705882353,
+                         0.7941176470588235, 0.5],
+    "count_roi_in_slot": [0.30, 0.50, 0.70, 0.50],
     "chest_template_threshold": 0.88,
+    "capture_source": "screen",
+    "game_window_title": "Minecraft",
     "empty_slot_threshold": 600,
     "item_match_threshold": 1500,
     "item_match_margin": 200,
@@ -82,6 +89,6 @@ DEFAULT_CONFIG = {
         "unknown_item": "• {name}",
         "table": {"name_width": 30, "total_width": 12, "stacks_width": 10},
     },
-    "hotkeys": {"toggle_window": "f6", "scan": "f8",
+    "hotkeys": {"toggle_window": "f6", "scan": "f8", "auto_grid": "f7",
                 "discord": "f9", "exit": "f10"},
 }

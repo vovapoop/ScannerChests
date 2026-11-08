@@ -64,6 +64,12 @@ def test_chest_closed_when_template_elsewhere():
     stub = DetStub()
     screen = _noise_screen()
     tpl = capture_template(screen)
+    # Убираем исходный фрагмент: иначе он сам остаётся идеальным совпадением
+    # в допустимой зоне и делает проверку независимой от переноса шаблона.
+    tx, ty = _expected_template_pos()
+    other = _noise_screen(seed=43)
+    screen[ty:ty + tpl.shape[0], tx:tx + tpl.shape[1]] = other[
+        ty:ty + tpl.shape[0], tx:tx + tpl.shape[1]]
     # Имитируем «другой интерфейс» в дальнем углу экрана.
     screen[40:40 + tpl.shape[0], 60:60 + tpl.shape[1]] = tpl
     stub.chest_template = tpl

@@ -59,7 +59,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           New-Item -ItemType Directory -Path dist/ChestScanner/assets -Force | Out-Null
           Copy-Item assets/* dist/ChestScanner/assets -Recurse -Force
-          Copy-Item items.json, LICENSE -Destination dist/ChestScanner -Force
+          Remove-Item dist/ChestScanner/items.json -Force -ErrorAction SilentlyContinue
+          Copy-Item LICENSE -Destination dist/ChestScanner -Force
           python build_portable.py --dist dist/ChestScanner --output dist/ChestScanner-portable.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

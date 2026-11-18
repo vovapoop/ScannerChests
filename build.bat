@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal
 cd /d "%~dp0"
 
@@ -63,11 +63,11 @@ if errorlevel 1 ( echo [ERROR] Сборка PyInstaller не удалась. & p
 
 REM --- 5. Ассеты и база предметов рядом с exe -------------------------
 set "DIST=dist\ChestScanner"
+if exist "%DIST%\items.json" del /Q "%DIST%\items.json"
 echo [INFO] Копирование assets\ и items.json в %DIST% ...
 if not exist "%DIST%\assets" mkdir "%DIST%\assets"
 xcopy "assets" "%DIST%\assets\" /E /I /Y >nul
 if errorlevel 1 ( echo [ERROR] Копирование assets не удалось. & pause & exit /b 1 )
-copy /Y "items.json" "%DIST%\items.json" >nul
 if errorlevel 1 ( echo [ERROR] Копирование items.json не удалось. & pause & exit /b 1 )
 copy /Y "LICENSE" "%DIST%\LICENSE" >nul
 if errorlevel 1 ( echo [ERROR] Копирование LICENSE не удалось. & pause & exit /b 1 )

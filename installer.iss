@@ -41,7 +41,6 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "dist\ChestScanner\ChestScanner.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\ChestScanner\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\ChestScanner\assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "dist\ChestScanner\items.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall
 Source: "dist\ChestScanner\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]

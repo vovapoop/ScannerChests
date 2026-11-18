@@ -2,18 +2,13 @@
 from pathlib import Path
 
 
-def test_installer_preserves_existing_item_database_on_upgrade_and_uninstall():
+def test_installer_does_not_ship_a_prepopulated_item_database():
     installer = Path(__file__).resolve().parents[1] / "installer.iss"
     lines = installer.read_text(encoding="utf-8").splitlines()
-    item_entries = [
-        line for line in lines
-        if line.strip().startswith('Source: "dist\\ChestScanner\\items.json"')
-    ]
-    assert len(item_entries) == 1
-    flags = item_entries[0].split("Flags:", 1)[1].strip().split()
-    assert "onlyifdoesntexist" in flags
-    assert "uninsneveruninstall" in flags
-
+    assert not any(
+        line.strip().startswith('Source: "dist\\ChestScanner\\items.json"')
+        for line in lines
+    )
 
 
 def test_release_version_is_consistent_across_exe_and_installer_metadata():

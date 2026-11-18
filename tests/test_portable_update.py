@@ -1,4 +1,4 @@
-﻿"""Regression and integration tests for safe portable package updates."""
+"""Regression and integration tests for safe portable package updates."""
 from __future__ import annotations
 
 import os
@@ -26,7 +26,6 @@ def test_portable_archive_contains_only_fresh_install_payload(tmp_path):
     (dist / "profiles" / "private.json").write_text("private", encoding="utf-8")
     (project / "assets" / "digits" / "1.png").write_bytes(b"digit")
     (project / "assets" / "custom" / "private.png").write_bytes(b"private image")
-    (project / "items.json").write_text('{"items": []}', encoding="utf-8")
     (project / "LICENSE").write_text("license", encoding="utf-8")
     (project / "update_portable.bat").write_text("updater", encoding="utf-8")
     (project / "update_portable.ps1").write_text("powershell updater", encoding="utf-8")
@@ -39,7 +38,7 @@ def test_portable_archive_contains_only_fresh_install_payload(tmp_path):
         assert "ChestScanner/ChestScanner.exe" in names
         assert "ChestScanner/_internal/runtime.dll" in names
         assert "ChestScanner/assets/digits/1.png" in names
-        assert "ChestScanner/items.json" in names
+        assert "ChestScanner/items.json" not in names
         assert "ChestScanner/LICENSE" in names
         assert "update_portable.bat" in names
         assert "update_portable.ps1" in names
@@ -194,3 +193,17 @@ def test_build_script_uses_whitelisted_portable_packager():
     build = Path("build.bat").read_text(encoding="utf-8-sig")
     assert "build_portable.py --dist" in build
     assert "Compress-Archive" not in build
+
+
+def test_release_build_entrypoints_exclude_prepopulated_item_database():
+    build = Path("build.bat").read_text(encoding="utf-8-sig")
+    installer = Path("installer.iss").read_text(encoding="utf-8-sig")
+    workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+    portable = Path("build_portable.py").read_text(encoding="utf-8-sig")
+    assert 'del /Q "%DIST%\\items.json"' in build
+    assert 'copy /Y "items.json"' not in build
+    assert '??????????? items.json ?? ???????' not in build
+    assert not (Path(__file__).resolve().parents[1] / 'items.json').exists()
+    assert 'items.json' not in portable
+    assert 'dist\\ChestScanner\\items.json' not in installer
+    assert 'Remove-Item dist/ChestScanner/items.json' in workflow

@@ -20,7 +20,6 @@ def build_portable_package(dist_dir: Path, project_root: Path, output_zip: Path)
         dist_dir / "ChestScanner.exe",
         dist_dir / "_internal",
         project_root / "assets",
-        project_root / "items.json",
         project_root / "LICENSE",
         project_root / "update_portable.bat",
         project_root / "update_portable.ps1",
@@ -41,7 +40,6 @@ def build_portable_package(dist_dir: Path, project_root: Path, output_zip: Path)
             app_stage / "assets",
             ignore=_ignore_asset_custom,
         )
-        shutil.copy2(project_root / "items.json", app_stage / "items.json")
         shutil.copy2(project_root / "LICENSE", app_stage / "LICENSE")
         shutil.copy2(project_root / "update_portable.bat", stage / "update_portable.bat")
         shutil.copy2(project_root / "update_portable.ps1", stage / "update_portable.ps1")

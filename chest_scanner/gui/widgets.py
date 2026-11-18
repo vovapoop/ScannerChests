@@ -312,6 +312,8 @@ class SideBar(QFrame):
             icon = parts[0] if parts else ""
             label = parts[1] if len(parts) > 1 else ""
             b = HoverButton(text, ghost=True)
+            b.setToolTip(text)
+            b.setAccessibleName(label or text)
             b.clicked.connect(cmd)
             lay.addWidget(b)
             self.buttons[key] = b
@@ -325,6 +327,8 @@ class SideBar(QFrame):
         lay.addWidget(self.divider)
 
         self.exit_btn = HoverButton("✕  Выход", ghost=True)
+        self.exit_btn.setToolTip("\u0417\u0430\u043a\u0440\u044b\u0442\u044c Chest Scanner")
+        self.exit_btn.setAccessibleName("\u0412\u044b\u0445\u043e\u0434")
         self.exit_btn.clicked.connect(on_exit or (lambda: None))
         lay.addWidget(self.exit_btn)
 

@@ -16,6 +16,7 @@ ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 DIGITS_DIR = os.path.join(ASSETS_DIR, "digits")
 RESULTS_DIR = os.path.join(PROFILE_DIR, "results")
 UNKNOWN_DIR = os.path.join(PROFILE_DIR, "unknown_items")
+UNKNOWN_QUEUE_FILE = os.path.join(PROFILE_DIR, "unknown_items.json")
 ITEM_IMAGES_DIR = os.path.join(PROFILE_DIR, "items")
 RESULTS_FILE = os.path.join(RESULTS_DIR, "chests.json")
 RESULTS_DB = os.path.join(RESULTS_DIR, "chests.db")
@@ -89,6 +90,5 @@ DEFAULT_CONFIG = {
         "unknown_item": "• {name}",
         "table": {"name_width": 30, "total_width": 12, "stacks_width": 10},
     },
-    "hotkeys": {"toggle_window": "f6", "scan": "f8", "auto_grid": "f7",
-                "discord": "f9", "exit": "f10"},
+    "hotkeys": {"toggle_window": "f6", "scan": "f8", "exit": "f10"},
 }

@@ -73,8 +73,18 @@ def _read_hash():
 
 def _write_hash(v):
     os.makedirs(_VENV_DIR, exist_ok=True)
-    with open(_REQ_HASH, "w", encoding="utf-8") as f:
-        f.write(v)
+    temp_path = _REQ_HASH + ".tmp"
+    try:
+        with open(temp_path, "w", encoding="utf-8", newline="") as f:
+            f.write(v)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, _REQ_HASH)
+    finally:
+        try:
+            os.unlink(temp_path)
+        except FileNotFoundError:
+            pass
 
 
 def _run_cmd(cmd):
@@ -95,7 +105,7 @@ def _run_cmd(cmd):
 
 
 def _startup_error(err):
-    """?????????? ????????? ? ?????? traceback ?????? ???????."""
+    """?????????? ???????????? ???? ? ????????????? ?????? ???????."""
     log = os.path.join(BASE_DIR_FOR_APP, "startup_error.log")
     msg = f"{type(err).__name__}: {err}"
     detail = "".join(traceback.format_exception(type(err), err, err.__traceback__))
@@ -120,38 +130,125 @@ def _entry_script():
     return os.path.abspath(__file__)
 
 
+def _is_windows():
+    return os.name == "nt"
+
+
+_BOOTSTRAP_INSTANCE_LOCK = None
+_HANDSHAKE_ENV = "CHESTSCANNER_BOOTSTRAP_HANDSHAKE"
+_HANDSHAKE_TIMEOUT = 20.0
+
+
+def take_bootstrap_instance_lock():
+    """Transfer a lock acquired by the child handshake to the application."""
+    global _BOOTSTRAP_INSTANCE_LOCK
+    lock = _BOOTSTRAP_INSTANCE_LOCK
+    _BOOTSTRAP_INSTANCE_LOCK = None
+    return lock
+
+
+def _launch_child_with_handshake(vpy):
+    """Wait for child lock ownership before releasing the setup lock."""
+    import threading
+    env = os.environ.copy()
+    env[_HANDSHAKE_ENV] = "1"
+    runner = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          "bootstrap_runner.py")
+    child = subprocess.Popen(
+        [vpy, runner, _entry_script(), *sys.argv[1:]], cwd=BASE_DIR_FOR_APP,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8", errors="replace", bufsize=1, env=env,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if _is_windows() else 0)
+    result = {}
+    ready = threading.Event()
+
+    def read_status():
+        try:
+            result["status"] = child.stdout.readline().strip()
+            ready.set()
+            # Continue draining output so the child cannot block on a full pipe.
+            while child.stdout.readline():
+                pass
+        except (OSError, ValueError) as exc:
+            result["error"] = exc
+        finally:
+            ready.set()
+
+    threading.Thread(target=read_status, name="ChestScannerBootstrapHandshake", daemon=True).start()
+    if not ready.wait(_HANDSHAKE_TIMEOUT):
+        child.kill()
+        child.wait(timeout=5)
+        raise RuntimeError("Child bootstrap did not confirm instance-lock ownership.")
+    status = result.get("status")
+    if status == "BUSY":
+        child.wait(timeout=5)
+        return False
+    if status != "CLAIMED":
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=5)
+        raise RuntimeError("Child bootstrap failed before claiming the instance lock: "
+                           + str(result.get("error") or status or "no response"))
+    return child
+
+
 def _ensure_venv():
-    if IS_FROZEN or _venv_active():
+    if IS_FROZEN:
         return
-    vpy, vpyw = _venv_py()
-    setup = sys.executable
-    if os.name == "nt" and os.path.basename(setup).lower() == "pythonw.exe":
-        c = os.path.join(os.path.dirname(setup), "python.exe")
-        if os.path.isfile(c):
-            setup = c
-    if not os.path.isfile(vpy):
-        _run_cmd([setup, "-m", "venv", _VENV_DIR])
-    if not os.path.isfile(vpy):
-        raise RuntimeError(".venv создана, но python не найден.")
-    if os.name == "nt" and not os.path.isfile(vpyw):
-        _run_cmd([vpy, "-m", "venv", "--clear", _VENV_DIR])
-    rh = _req_hash()
-    if rh and _read_hash() != rh:
-        _run_cmd([vpy, "-m", "pip", "install", "--no-cache-dir",
-                  "-r", _REQ_FILE, "--disable-pip-version-check"])
-        _write_hash(rh)
-    if os.name == "nt" and os.path.isfile(vpyw):
-        p = subprocess.Popen(
-            [vpyw, _entry_script(), *sys.argv[1:]],
-            cwd=BASE_DIR_FOR_APP, stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-        if p.pid:
-            sys.exit(0)
-    os.execv(vpy, [vpy, _entry_script(), *sys.argv[1:]])
+    if _BOOTSTRAP_INSTANCE_LOCK is not None:
+        return
+    if _venv_active():
+        return
+    from chest_scanner.instance_lock import acquire_instance_lock
+    setup_lock = acquire_instance_lock(
+        BASE_DIR_FOR_APP, lock_name=".chestscanner-venv-setup.lock", blocking=True)
+    app_lock = None
+    child = None
+    committed = False
+    try:
+        vpy, vpyw = _venv_py()
+        app_lock = acquire_instance_lock(BASE_DIR_FOR_APP, blocking=False)
+        if app_lock is not None:
+            setup = sys.executable
+            if _is_windows() and os.path.basename(setup).lower() == "pythonw.exe":
+                candidate = os.path.join(os.path.dirname(setup), "python.exe")
+                if os.path.isfile(candidate):
+                    setup = candidate
+            if not os.path.isfile(vpy):
+                _run_cmd([setup, "-m", "venv", _VENV_DIR])
+            if not os.path.isfile(vpy):
+                raise RuntimeError(".venv is not initialized: its Python interpreter is missing.")
+            if _is_windows() and not os.path.isfile(vpyw):
+                _run_cmd([setup, "-m", "venv", "--clear", _VENV_DIR])
+            if not os.path.isfile(vpy):
+                raise RuntimeError(".venv repair failed: python.exe is missing.")
+            if _is_windows() and not os.path.isfile(vpyw):
+                raise RuntimeError(".venv repair failed: pythonw.exe is missing.")
+            requirements_hash = _req_hash()
+            if requirements_hash and _read_hash() != requirements_hash:
+                _run_cmd([vpy, "-m", "pip", "install", "--no-cache-dir",
+                          "-r", _REQ_FILE, "--disable-pip-version-check"])
+                _write_hash(requirements_hash)
+            app_lock.close()
+            app_lock = None
+        child = _launch_child_with_handshake(vpy)
+        if child is False:
+            return
+        setup_lock.close()
+        child.stdin.write("COMMIT\n")
+        child.stdin.flush()
+        child.stdin.close()
+        committed = True
+    finally:
+        if app_lock is not None:
+            app_lock.close()
+        setup_lock.close()
+        if child not in (None, False) and not committed and child.poll() is None:
+            child.kill()
+            child.wait(timeout=5)
+    if child is not False:
+        raise SystemExit(0)
 
-
-# ============================================================
 # ЗАВИСИМОСТИ
 # ============================================================
 try:

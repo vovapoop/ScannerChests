@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal
 cd /d "%~dp0"
 
@@ -63,19 +63,20 @@ if errorlevel 1 ( echo [ERROR] Сборка PyInstaller не удалась. & p
 
 REM --- 5. Ассеты и база предметов рядом с exe -------------------------
 set "DIST=dist\ChestScanner"
+if exist "%DIST%\items.json" del /Q "%DIST%\items.json"
 echo [INFO] Копирование assets\ и items.json в %DIST% ...
 if not exist "%DIST%\assets" mkdir "%DIST%\assets"
 xcopy "assets" "%DIST%\assets\" /E /I /Y >nul
 if errorlevel 1 ( echo [ERROR] Копирование assets не удалось. & pause & exit /b 1 )
-copy /Y "items.json" "%DIST%\items.json" >nul
 if errorlevel 1 ( echo [ERROR] Копирование items.json не удалось. & pause & exit /b 1 )
 copy /Y "LICENSE" "%DIST%\LICENSE" >nul
 if errorlevel 1 ( echo [ERROR] Копирование LICENSE не удалось. & pause & exit /b 1 )
 
-REM --- 6. Портативный архив -------------------------------------------
-echo [INFO] Создание ChestScanner-portable.zip ...
-powershell -NoProfile -Command "Compress-Archive -Path '%DIST%' -DestinationPath 'dist\ChestScanner-portable.zip' -Force"
-if errorlevel 1 ( echo [WARN] Создание zip не удалось. ) else ( echo [OK] dist\ChestScanner-portable.zip )
+REM --- 6. Портативный архив (только файлы приложения и стартовая база) ----
+echo [INFO] Создание безопасного ChestScanner-portable.zip ...
+"%BUILD_PY%" build_portable.py --dist "%DIST%" --output "dist\ChestScanner-portable.zip"
+if errorlevel 1 ( echo [ERROR] Создание portable ZIP не удалось. & pause & exit /b 1 )
+echo [OK] dist\ChestScanner-portable.zip
 
 REM --- 7. Установщик Inno Setup ---------------------------------------
 set "ISCC="

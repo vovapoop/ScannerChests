@@ -10,10 +10,11 @@ import subprocess
 import sys
 import threading
 import time
+from contextlib import contextmanager
 from queue import Empty, Queue
 
-from PySide6.QtCore import QObject, QPoint, Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QIcon, QPixmap
+from PySide6.QtCore import QObject, QPoint, QSettings, Qt, QThread, QTimer, Signal
+from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -32,7 +33,12 @@ from PySide6.QtWidgets import (
 
 from chest_scanner import paths
 from chest_scanner.app_bootstrap import KEYBOARD_AVAILABLE, keyboard
-from chest_scanner.commons import absolute_path, load_json, save_json
+from chest_scanner.commons import (
+    absolute_path,
+    load_json,
+    results_history_guard,
+    save_json,
+)
 from chest_scanner.config import load_profiles, save_profiles
 from chest_scanner.gui.dialogs import (
     ExportDialog,
@@ -42,6 +48,7 @@ from chest_scanner.gui.dialogs import (
     ProfileManagerDialog,
     StatsDialog,
     UnknownItemDialog,
+    load_all_chests,
 )
 from chest_scanner.gui.help import HelpDialog
 from chest_scanner.gui.settings import SettingsDialog
@@ -61,6 +68,33 @@ ACCENT_HOVER = PALETTE["ACCENT_HOVER"]
 GREEN = PALETTE["GREEN"]
 RED = PALETTE["RED"]
 YELLOW = PALETTE["YELLOW"]
+
+
+@contextmanager
+def _scanner_state_guard(reader):
+    """Reserve the scanner while GUI code mutates shared recognition state.
+
+    The editor mutates ``reader.items_db`` in place before its save callback,
+    so this guard must cover the complete modal editing session.
+    """
+    lock = getattr(reader, "_scan_lock", None)
+    acquired = lock is None or lock.acquire(blocking=False)
+    try:
+        yield acquired
+    finally:
+        if acquired and lock is not None:
+            lock.release()
+
+
+def _format_scan_notification(result, unknown_count=0):
+    """Build a readable tray notification for a completed scan."""
+    message = (
+        f"\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u043e: {result.get('occupied_slots', 0)} "
+        f"\u044f\u0447\u0435\u0435\u043a, {result.get('unique_items', 0)} \u0443\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445."
+    )
+    if unknown_count:
+        message += f"\n\u26a0 \u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u044b\u0445 \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432: {unknown_count}"
+    return message
 
 
 class _GuiBus(QObject):
@@ -89,13 +123,21 @@ class ScannerGUI(QMainWindow):
 
         self.setWindowTitle("Chest Scanner")
         self.resize(1120, 780)
-        self.setMinimumSize(960, 660)
+        self.setMinimumSize(820, 560)
+        self._ui_settings = QSettings("ChestScanner", "ChestScanner")
+        saved_geometry = self._ui_settings.value("window/geometry")
+        if saved_geometry:
+            self.restoreGeometry(saved_geometry)
 
         self.log_queue = Queue()
         self.busy = False
         self.running = True
         self._workers = set()
         self._workers_lock = threading.Lock()
+        self._shutdown_started = False
+        self._shutdown_complete = False
+        self._shutdown_timer = None
+        self._shutdown_logged_workers = False
         self._prompt_state = None
         self._settings_dlg = None
         self._hotkey_manager = None
@@ -118,6 +160,13 @@ class ScannerGUI(QMainWindow):
         self.reader.unknown_item_prompt = self._prompt_unknown_item
 
         self._build_ui()
+        self._quick_search_shortcut = QShortcut(QKeySequence.Find, self)
+        self._quick_search_shortcut.setContext(Qt.WindowShortcut)
+        self._quick_search_shortcut.activated.connect(
+            lambda: self.open_item_database(focus_search=True))
+        self._undo_scan_shortcut = QShortcut(QKeySequence.Undo, self)
+        self._undo_scan_shortcut.setContext(Qt.WindowShortcut)
+        self._undo_scan_shortcut.activated.connect(self._undo_last_scan)
         self._setup_tray()
         self._refresh_profile_label()
         self._refresh_stats()
@@ -173,7 +222,6 @@ class ScannerGUI(QMainWindow):
             ("stats", "📊  Статистика", self.open_stats_dialog),
             ("log", "📄  Открыть лог", self._open_log_file),
             ("help", "❓  Справка (F1)", self.open_help),
-            ("reset", "♻  Сброс настроек", self._reset_config),
         ]
         self._sidebar = SideBar(tools, on_exit=lambda: self.close(force=True))
         body.addWidget(self._sidebar)
@@ -183,41 +231,58 @@ class ScannerGUI(QMainWindow):
         content.setSpacing(14)
         body.addLayout(content, 1)
 
-        actions = QHBoxLayout()
+        # Основные действия вынесены в отдельную строку, служебные — во вторую.
+        # Так кнопки не сжимаются в одну длинную полосу на обычной ширине окна.
+        actions = QVBoxLayout()
         actions.setSpacing(8)
+
+        primary_actions = QHBoxLayout()
+        primary_actions.setSpacing(8)
         scan_btn = HoverButton("Сканировать", accent=True, min_height=38)
+        scan_btn.setToolTip("Просканировать открытый сундук")
         scan_btn.clicked.connect(lambda: self._run("Сканирование", self._scan, with_progress=True))
-        actions.addWidget(scan_btn)
-        discord_btn = HoverButton("Discord", min_height=38)
-        discord_btn.clicked.connect(lambda: self._run("Отправка в Discord", self._discord))
-        actions.addWidget(discord_btn)
+        primary_actions.addWidget(scan_btn)
         items_btn = HoverButton("Предметы", min_height=38)
+        items_btn.setToolTip("Открыть базу предметов и очередь неизвестных предметов")
         items_btn.clicked.connect(self.open_item_database)
-        actions.addWidget(items_btn)
-        tour_btn = HoverButton("🎓 Обучение", min_height=38)
+        primary_actions.addWidget(items_btn)
+        discord_btn = HoverButton("Discord", min_height=38)
+        discord_btn.setToolTip("Отправить результаты в Discord")
+        discord_btn.clicked.connect(lambda: self._run("Отправка в Discord", self._discord))
+        primary_actions.addWidget(discord_btn)
+        tour_btn = HoverButton("Обучение", min_height=38)
+        tour_btn.setToolTip("Запустить обучающий тур по настройкам")
         tour_btn.clicked.connect(self._start_tour)
-        actions.addWidget(tour_btn)
-        self.auto_scan_btn = HoverButton("▶ Автоскан", min_height=38)
+        primary_actions.addWidget(tour_btn)
+        primary_actions.addStretch(1)
+        actions.addLayout(primary_actions)
+
+        secondary_actions = QHBoxLayout()
+        secondary_actions.setSpacing(8)
+        self.auto_scan_btn = HoverButton("Автоскан", min_height=34)
+        self.auto_scan_btn.setToolTip("Включить или выключить автоматическое сканирование")
         self.auto_scan_btn.clicked.connect(self._toggle_auto_scan)
-        actions.addWidget(self.auto_scan_btn)
-        self.undo_scan_btn = HoverButton("↩ Отменить скан", min_height=38)
+        secondary_actions.addWidget(self.auto_scan_btn)
+        self.undo_scan_btn = HoverButton("Отменить последний скан", min_height=34)
+        self.undo_scan_btn.setToolTip("Отменить последний сохранённый скан (Ctrl+Z)")
         self.undo_scan_btn.clicked.connect(self._undo_last_scan)
-        actions.addWidget(self.undo_scan_btn)
+        secondary_actions.addWidget(self.undo_scan_btn)
         self.scan_progress = QProgressBar()
         self.scan_progress.setObjectName("scanProgress")
         self.scan_progress.setRange(0, 100)
         self.scan_progress.setValue(0)
-        self.scan_progress.setFixedWidth(260)
+        self.scan_progress.setMinimumWidth(120)
+        self.scan_progress.setMaximumWidth(260)
         self.scan_progress.setVisible(False)
-        actions.addWidget(self.scan_progress)
-        self.scan_cancel_btn = HoverButton("Отмена", min_height=38)
+        secondary_actions.addWidget(self.scan_progress, 1)
+        self.scan_cancel_btn = HoverButton("Отменить", min_height=34)
+        self.scan_cancel_btn.setToolTip("Запросить остановку текущего сканирования")
         self.scan_cancel_btn.setVisible(False)
         self.scan_cancel_btn.clicked.connect(self._cancel_scan)
-        actions.addWidget(self.scan_cancel_btn)
-        actions.addStretch(1)
+        secondary_actions.addWidget(self.scan_cancel_btn)
+        actions.addLayout(secondary_actions)
         content.addLayout(actions)
 
-        # Карточки статистики
         stats = QHBoxLayout()
         stats.setSpacing(10)
         self.cards = {}
@@ -321,12 +386,12 @@ class ScannerGUI(QMainWindow):
         self.raise_()
         self.activateWindow()
 
-    def _notify(self, message, title="Chest Scanner"):
+    def _notify(self, message, title="Chest Scanner", icon=QSystemTrayIcon.Information):
         if self._tray is None or not self._tray.isVisible():
             return
         try:
             self._tray.showMessage(title, message,
-                                   QSystemTrayIcon.Information, 3000)
+                                   icon, 3000)
         except Exception:
             pass
 
@@ -418,8 +483,8 @@ class ScannerGUI(QMainWindow):
         """Подсказка по горячим клавишам из конфига (пустые значения скрываются)."""
         hk = self.reader.config.get("hotkeys", {})
         parts = []
-        for action, label in (("toggle_window", "окно"), ("scan", "скан"),
-                              ("discord", "Discord"), ("exit", "выход")):
+        for action, label in (("toggle_window", "\u041e\u043a\u043d\u043e"), ("scan", "\u0421\u043a\u0430\u043d"),
+                              ("exit", "\u0412\u044b\u0445\u043e\u0434")):
             key = str(hk.get(action) or "").strip()
             if key:
                 parts.append(f"{key.upper()} {label}")
@@ -500,6 +565,9 @@ class ScannerGUI(QMainWindow):
         threading.Thread(target=self.reader.show_grid_debug, daemon=True).start()
 
     def _toggle_auto_scan(self):
+        if self.busy:
+            self._log("Нельзя менять автосканирование во время операции.", YELLOW)
+            return
         if self.reader.auto_scan_active:
             self.reader.stop_auto_scan()
             self._log("Автосканирование остановлено.", YELLOW)
@@ -532,6 +600,9 @@ class ScannerGUI(QMainWindow):
             self._log(f"Не удалось открыть лог: {e}", RED)
 
     def _reset_config(self):
+        if self.busy:
+            self._log("\u041d\u0435\u043b\u044c\u0437\u044f \u0441\u0431\u0440\u043e\u0441\u0438\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0438.", YELLOW)
+            return
         if not self._question("Сброс",
                               "Сбросить настройки к стандартным?\n"
                               "Текущий конфиг будет сохранён в .backup"):
@@ -567,6 +638,10 @@ class ScannerGUI(QMainWindow):
             elif reason == "chest_closed":
                 self._log("⚠ Сундук не открыт. Откройте сундук в игре "
                           "и повторите сканирование.", YELLOW)
+            elif reason == "storage_error":
+                self._log("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442. "
+                          "\u0424\u0430\u0439\u043b \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u043d\u0435 \u0438\u0437\u043c\u0435\u043d\u0451\u043d; "
+                          "\u043f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 chests.json \u0438 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u0441\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435.", YELLOW)
             else:
                 self._log("Сундук не найден или нет изменений.", MUTED)
             self._refresh_stats()
@@ -576,15 +651,15 @@ class ScannerGUI(QMainWindow):
         unknowns = set(result.get("unknown_items", []) or [])
         unknown_left = sorted(name for name in unknowns if name.startswith("unknown_"))
         if self._tray is not None and self.reader.config.get("notify_on_scan", True):
-            msg = (f"Сканировано: {result.get('occupied_slots', 0)} ячеек, "
-                   f"{result.get('unique_items', 0)} уникальных.")
-            if unknown_left:
-                msg += f"\n⚠ Неизвестных предметов: {len(unknown_left)}"
+            msg = _format_scan_notification(result, len(unknown_left))
             self._notify(msg, "Chest Scanner")
         self._log("✓ Сундук отсканирован.", GREEN)
         self._log("┌─ Содержимое", ACCENT)
         self._log(f"│ Время: {result.get('timestamp', '—')}", MUTED)
         self._log(f"│ Ячеек: {result.get('occupied_slots', 0)}", MUTED)
+        qty_unknown = int(result.get("quantity_unknown_slots", 0) or 0)
+        if qty_unknown:
+            self._log(f"  Количество не распознано в ячейках: {qty_unknown}", YELLOW)
         if not totals:
             self._log("│ Пуст.", MUTED)
         for name, qty in sorted(totals.items(), key=lambda x: x[0].lower()):
@@ -614,9 +689,9 @@ class ScannerGUI(QMainWindow):
         # Флаг выставляется до запуска потока: два быстрых клика не создадут
         # две параллельные операции.
         self.busy = True
+        self._sync_action_state()
 
         def worker():
-            current = threading.current_thread()
             self._bus.status.emit("busy")
             self._log(f"▶ {title}...")
             try:
@@ -628,12 +703,19 @@ class ScannerGUI(QMainWindow):
                     self._safe_after(self._finish_scan_progress)
                 if self.running:
                     self._log(f"✓ {title}: готово.", GREEN)
+                    if title != "Сканирование":
+                        self._safe_after(lambda: self._notify(
+                            f"{title}: завершено."))
             except Exception as e:
                 self._log(f"✕ {title}: {type(e).__name__}: {e}", RED)
                 logger.error(f"{title}: {e}", exc_info=True)
+                if self.running:
+                    self._safe_after(lambda: self._notify(
+                        f"{title}: ошибка. Подробности — в журнале.",
+                        icon=QSystemTrayIcon.Warning))
             finally:
-                with self._workers_lock:
-                    self._workers.discard(current)
+                # Keep the thread reference until the GUI thread observes that
+                # it has fully exited; removing it here races with shutdown.
                 self.busy = False
                 if self.running:
                     self._bus.status.emit("ready")
@@ -644,6 +726,9 @@ class ScannerGUI(QMainWindow):
         thread = threading.Thread(target=worker, name=f"ChestScanner-{title}",
                                   daemon=True)
         with self._workers_lock:
+            # Reap completed threads from previous operations. Keep live
+            # references so shutdown can wait for their actual termination.
+            self._workers = {worker for worker in self._workers if worker.is_alive()}
             self._workers.add(thread)
         try:
             thread.start()
@@ -651,7 +736,24 @@ class ScannerGUI(QMainWindow):
             with self._workers_lock:
                 self._workers.discard(thread)
             self.busy = False
+            self._sync_action_state()
             raise
+
+    def _sync_action_state(self):
+        """Disable conflicting actions while a background operation is active."""
+        enabled = not self.busy
+        for name in ("scan_btn", "items_btn", "discord_btn", "tour_btn",
+                     "auto_scan_btn"):
+            button = getattr(self, name, None)
+            if button is not None:
+                button.setEnabled(enabled)
+        sidebar = getattr(self, "_sidebar", None)
+        if sidebar is not None:
+            for key in ("settings", "profiles", "data"):
+                button = sidebar.buttons.get(key)
+                if button is not None:
+                    button.setEnabled(enabled)
+        self._sync_undo_scan_btn()
 
     def _apply_status(self, state):
         if state == "busy":
@@ -660,6 +762,7 @@ class ScannerGUI(QMainWindow):
         else:
             self.status_dot.setText("●  ГОТОВ")
             self.status_dot.setStyleSheet(f"color: {GREEN};")
+        self._sync_undo_scan_btn()
 
     # ── Прогресс и отмена сканирования ──
     def _apply_progress(self, done, total):
@@ -690,6 +793,9 @@ class ScannerGUI(QMainWindow):
 
     def _start_tour(self):
         """Открывает настройки и запускает обучающий тур."""
+        if self.busy:
+            self._log("Нельзя запускать обучение во время операции.", YELLOW)
+            return
         self.open_settings(start_tour=True)
         try:
             pd = load_profiles()
@@ -701,14 +807,13 @@ class ScannerGUI(QMainWindow):
 
     def _undo_last_scan(self):
         """Удаляет последний результат сканирования (с подтверждением)."""
-        last = None
-        try:
-            data = load_json(paths.RESULTS_FILE, {"chests": []})
-            chests = data.get("chests", []) if isinstance(data, dict) else []
-            if chests and isinstance(chests[-1], dict):
-                last = chests[-1]
-        except Exception:
-            last = None
+        if self.busy:
+            self._log("\u041d\u0435\u043b\u044c\u0437\u044f \u043e\u0442\u043c\u0435\u043d\u0438\u0442\u044c \u0441\u043a\u0430\u043d \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0438.", YELLOW)
+            return
+        last = self.reader.latest_scan()
+        if last is None:
+            self._log("\u041d\u0435\u0442 \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u044b\u0445 \u0441\u043a\u0430\u043d\u043e\u0432 \u0434\u043b\u044f \u043e\u0442\u043c\u0435\u043d\u044b.", YELLOW)
+            return
         msg = "Удалить последний результат сканирования?"
         if last:
             msg = (f"Удалить скан от {last.get('timestamp', '?')} "
@@ -717,7 +822,7 @@ class ScannerGUI(QMainWindow):
                 != QMessageBox.StandardButton.Yes:
             return
         try:
-            removed = self.reader.undo_last_scan()
+            removed = self.reader.undo_last_scan(expected_scan=last)
         except Exception as e:
             self._log(f"Ошибка отмены скана: {e}", RED)
             return
@@ -726,12 +831,7 @@ class ScannerGUI(QMainWindow):
         else:
             self._log("Отменять нечего — результатов нет.", YELLOW)
         self._refresh_stats()
-        try:
-            data = load_json(paths.RESULTS_FILE, {"chests": []})
-            chests = data.get("chests", []) if isinstance(data, dict) else []
-            self._show_last_scan(chests[-1] if chests else None)
-        except Exception:
-            pass
+        self._show_last_scan(self.reader.latest_scan())
 
     # ── Горячие клавиши ──
     def _start_win_hotkeys(self):
@@ -743,7 +843,6 @@ class ScannerGUI(QMainWindow):
         hk = self.reader.config.get("hotkeys", {})
         actions = {"toggle_window": self._toggle_window,
                    "scan": lambda: self._run("Сканирование", self._scan, with_progress=True),
-                   "discord": lambda: self._run("Discord", self._discord),
                    "exit": lambda: self.close(force=True)}
         mgr = WinHotkeyManager()
         if not mgr.start():
@@ -755,6 +854,8 @@ class ScannerGUI(QMainWindow):
                 continue
             if mgr.register(key, lambda m=method: self._safe_after(m)):
                 registered += 1
+            else:
+                self._log(f"?? ??????? ???????????????? {action.upper()} ({key.upper()}): ??????? ?????? ??? ??????????.", PALETTE["RED"])
         if registered == 0:
             try:
                 mgr.stop()
@@ -805,16 +906,12 @@ class ScannerGUI(QMainWindow):
             hk = self.reader.config.get("hotkeys", {})
             k_toggle = str(hk.get("toggle_window") or "").strip().lower()
             k_scan = str(hk.get("scan") or "").strip().lower()
-            k_discord = str(hk.get("discord") or "").strip().lower()
             k_exit = str(hk.get("exit") or "").strip().lower()
             if k_toggle and keyboard.is_pressed(k_toggle):
                 self._toggle_window()
                 time.sleep(0.4)
             elif k_scan and keyboard.is_pressed(k_scan):
                 self._run("Сканирование", self._scan, with_progress=True)
-                time.sleep(0.4)
-            elif k_discord and keyboard.is_pressed(k_discord):
-                self._run("Discord", self._discord)
                 time.sleep(0.4)
             elif k_exit and keyboard.is_pressed(k_exit):
                 self.close(force=True)
@@ -831,21 +928,60 @@ class ScannerGUI(QMainWindow):
             self._tray_show()
 
     # ── Статистика и журнал ──
+    def _has_scan_history(self):
+        """Return whether there is a saved scan that can be undone."""
+        try:
+            return self.reader.latest_scan() is not None
+        except Exception:
+            return False
+
+    def _sync_undo_scan_btn(self):
+        """Disable undo when there is no history or another operation is active."""
+        button = getattr(self, "undo_scan_btn", None)
+        if button is not None:
+            button.setEnabled(not self.busy and self._has_scan_history())
+
+
     def _refresh_stats(self):
         try:
-            data = load_json(paths.RESULTS_FILE, {"chests": []})
-            chests = data.get("chests", []) if isinstance(data, dict) else []
-            totals, unknown = {}, set()
-            for ch in chests:
-                for n, q in (ch.get("totals", {}) or {}).items():
-                    totals[n] = totals.get(n, 0) + int(q or 0)
-                unknown.update(ch.get("unknown_items", []) or [])
+            # Match History and Stats: include archived scans and serialize reads
+            # against scan, undo, and restore mutations.
+            with results_history_guard(paths.RESULTS_FILE):
+                chests = load_all_chests(strict=True)
+            totals, present, unknown = {}, set(), set()
+            for chest in chests:
+                slots = chest.get("slots")
+                if isinstance(slots, list):
+                    for slot in slots:
+                        if not isinstance(slot, dict):
+                            continue
+                        name = slot.get("item")
+                        if isinstance(name, str) and name:
+                            present.add(name)
+                            if slot.get("unknown"):
+                                unknown.add(name)
+                chest_unknown = chest.get("unknown_items")
+                if isinstance(chest_unknown, list):
+                    unknown.update(name for name in chest_unknown
+                                   if isinstance(name, str) and name)
+                chest_totals = chest.get("totals")
+                if not isinstance(chest_totals, dict):
+                    continue
+                for name, quantity in chest_totals.items():
+                    if isinstance(name, str) and name:
+                        present.add(name)
+                    if (not isinstance(name, str) or not name
+                            or isinstance(quantity, bool)
+                            or not isinstance(quantity, int) or quantity < 0):
+                        continue
+                    totals[name] = totals.get(name, 0) + quantity
             self.cards["chests"].set_value(len(chests))
             self.cards["items"].set_value(f"{sum(totals.values()):,}".replace(",", " "))
-            self.cards["unique"].set_value(len(totals))
+            self.cards["unique"].set_value(len(present))
             self.cards["unknown"].set_value(len(unknown))
         except Exception:
-            pass
+            logger.exception("Could not refresh dashboard statistics from complete history")
+        self._sync_undo_scan_btn()
 
     def _log(self, message, color=None):
         self.log_queue.put((f"[{now_moscow().strftime('%H:%M:%S')}] {message}", color))
@@ -917,8 +1053,13 @@ class ScannerGUI(QMainWindow):
             return
         try:
             was_auto = self.reader.auto_scan_active
-            if was_auto:
-                self.reader.stop_auto_scan()
+            if was_auto and not self.reader.stop_auto_scan():
+                if tries < 40:
+                    QTimer.singleShot(
+                        200, self, lambda n=tries + 1: self._apply_settings_runtime(n))
+                else:
+                    self._log("\u0410\u0432\u0442\u043e\u0441\u043a\u0430\u043d \u0435\u0449\u0451 \u0437\u0430\u0432\u0435\u0440\u0448\u0430\u0435\u0442\u0441\u044f. \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u043d\u0435 \u043f\u0440\u0438\u043c\u0435\u043d\u0435\u043d\u044b.", YELLOW)
+                return
             self.reader.reload_profile()
             if was_auto or self.reader.config.get("auto_scan_enabled", False):
                 self.reader.start_auto_scan()
@@ -937,6 +1078,9 @@ class ScannerGUI(QMainWindow):
                 pass
 
     def open_settings(self, start_tour=False):
+        if self.busy:
+            self._log("Нельзя менять настройки во время операции.", YELLOW)
+            return
         if self._settings_dlg is not None and self._settings_dlg.isVisible():
             self._settings_dlg.raise_()
             return
@@ -968,12 +1112,28 @@ class ScannerGUI(QMainWindow):
         act_export_db = menu.addAction("🗂  Экспорт базы предметов (ZIP)")
         act_export_db.triggered.connect(self._export_item_db)
         act_import_db = menu.addAction("📥  Импорт базы предметов (ZIP)")
+        act_import_db.setEnabled(not self.busy)
+        act_import_db.setToolTip("\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0438" if self.busy else "\u0418\u043c\u043f\u043e\u0440\u0442 \u0431\u0430\u0437\u044b \u0438\u0437 ZIP-\u0430\u0440\u0445\u0438\u0432\u0430")
         act_import_db.triggered.connect(self._import_item_db)
+        menu.addSeparator()
+        act_reset = menu.addAction("Сбросить настройки…")
+        act_reset.setEnabled(not self.busy)
+        act_reset.setToolTip("\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0438" if self.busy else "\u0412\u0435\u0440\u043d\u0443\u0442\u044c \u0441\u0442\u0430\u043d\u0434\u0430\u0440\u0442\u043d\u044b\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438")
+        act_reset.triggered.connect(self._reset_config)
         btn = self._sidebar.buttons["data"]
         menu.exec_(btn.mapToGlobal(QPoint(0, btn.height())))
 
-    def open_item_database(self):
-        ItemDatabaseDialog(self.reader, self).exec()
+    def open_item_database(self, focus_search=False):
+        if self.busy:
+            self._log("\u041d\u0435\u043b\u044c\u0437\u044f \u0438\u0437\u043c\u0435\u043d\u044f\u0442\u044c \u0431\u0430\u0437\u0443 \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432 \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0438.", YELLOW)
+            return
+        # ItemDatabaseView mutates the shared items_db before its save callback.
+        # Reserve the scanner for the entire modal session, not only the save.
+        with _scanner_state_guard(self.reader) as acquired:
+            if not acquired:
+                self._log("\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0443\u0436\u0435 \u0432\u044b\u043f\u043e\u043b\u043d\u044f\u0435\u0442\u0441\u044f. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.", YELLOW)
+                return
+            ItemDatabaseDialog(self.reader, self, focus_search=focus_search).exec()
 
     def open_stats_dialog(self):
         StatsDialog(self).exec()
@@ -1004,6 +1164,9 @@ class ScannerGUI(QMainWindow):
             QMessageBox.critical(self, "Экспорт базы", str(e))
 
     def _import_item_db(self):
+        if self.busy:
+            self._log("\u041d\u0435\u043b\u044c\u0437\u044f \u0438\u043c\u043f\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0431\u0430\u0437\u0443 \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0438.", YELLOW)
+            return
         path, _ = QFileDialog.getOpenFileName(
             self, "Импорт базы предметов", "", "Архив базы (*.zip);;Все файлы (*.*)")
         if not path:
@@ -1013,83 +1176,140 @@ class ScannerGUI(QMainWindow):
             "Объединить с текущей базой?\n"
             "(Да — предметы из файла добавятся или обновятся,\n"
             " Нет — база будет заменена полностью).")
-        try:
-            from chest_scanner.item_pack import import_item_db
-            merged = import_item_db(path, self.reader.items_db,
-                                    mode="merge" if merge else "replace")
-            self.reader.items_db = merged
-            save_json(paths.ITEMS_FILE, merged)
-            self.reader.template_cache.invalidate()
-            self.reader._rebuild_indexes()
-            self._refresh_stats()
-            self._log(f"✓ База импортирована: {len(merged.get('items', []))} предметов",
-                      GREEN)
-        except Exception as e:
-            self._log(f"Ошибка импорта базы: {e}", RED)
-            QMessageBox.critical(self, "Импорт базы", str(e))
+        with _scanner_state_guard(self.reader) as acquired:
+            if not acquired:
+                self._log("\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0443\u0436\u0435 \u0432\u044b\u043f\u043e\u043b\u043d\u044f\u0435\u0442\u0441\u044f. \u0418\u043c\u043f\u043e\u0440\u0442 \u043e\u0442\u043c\u0435\u043d\u0451\u043d.", YELLOW)
+                return
+            try:
+                from chest_scanner.item_pack import import_item_db
+                merged = import_item_db(
+                    path, self.reader.items_db,
+                    mode="merge" if merge else "replace",
+                    commit=lambda database: save_json(
+                        paths.ITEMS_FILE, database, backup=True))
+                self.reader.items_db = merged
+                self.reader.template_cache.invalidate()
+                self.reader._rebuild_indexes()
+                self._refresh_stats()
+                self._log(f"\u2713 \u0411\u0430\u0437\u0430 \u0438\u043c\u043f\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0430: {len(merged.get('items', []))} \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432",
+                          GREEN)
+            except Exception as e:
+                self._log(f"\u041e\u0448\u0438\u0431\u043a\u0430 \u0438\u043c\u043f\u043e\u0440\u0442\u0430 \u0431\u0430\u0437\u044b: {e}", RED)
+                QMessageBox.critical(self, "\u041e\u0448\u0438\u0431\u043a\u0430 \u0438\u043c\u043f\u043e\u0440\u0442\u0430 \u0431\u0430\u0437\u044b", str(e))
 
-    # ── Закрытие ──
+    # Closing
     def closeEvent(self, event: QCloseEvent):
-        if not self.running:
+        if self._shutdown_complete:
             event.accept()
             return
-        if self._tray is not None and self.reader.config.get("tray_minimize_to_tray", False):
-            self.hide()
-            self._notify("Приложение работает в фоне. Меню — иконка в трее.",
-                         "Chest Scanner")
-            event.ignore()
-            return
-        self.close(force=True)
-        event.accept()
+        if not self._shutdown_started:
+            if (self._tray is not None
+                    and self.reader.config.get("tray_minimize_to_tray", False)):
+                self.hide()
+                self._notify(
+                    "?????????? ???????? ? ????. ???? ? ?????? ? ????.",
+                    "Chest Scanner")
+                event.ignore()
+                return
+            self.close(force=True)
+        event.ignore()
 
     def close(self, force=False):
-        if not self.running:
+        """Begin an asynchronous, orderly shutdown without blocking the GUI."""
+        if self._shutdown_complete or self._shutdown_started:
             return
+
+        try:
+            self._ui_settings.setValue("window/geometry", self.saveGeometry())
+            self._ui_settings.sync()
+        except Exception as e:
+            logger.warning("?? ??????? ????????? ????????? ????: %s", e)
+
+        self._shutdown_started = True
+        self._shutdown_started_at = time.monotonic()
+        self._shutdown_stall_warned = False
         self.running = False
         self._key_timer.stop()
         self._log_timer.stop()
 
-        # Разблокируем worker, ожидающий ответа на диалог неизвестного предмета.
+        # Unblock a worker waiting for the answer in the unknown-item dialog.
         prompt_state = self._prompt_state
         if prompt_state is not None:
             prompt_state[0].set()
 
-        # Просим текущий скан остановиться до закрытия QApplication.
         try:
             self.reader.request_scan_cancel()
         except Exception:
-            pass
+            logger.debug("?? ??????? ????????? ?????? ?????? ????????????", exc_info=True)
         try:
             if self._hotkey_manager:
                 self._hotkey_manager.stop()
                 self._hotkey_manager = None
         except Exception:
-            pass
+            logger.warning("?? ??????? ?????????? ?????????? ??????? ??????", exc_info=True)
         try:
             if self._tray is not None:
                 self._tray.hide()
         except Exception:
-            pass
-        try:
-            if self.reader.auto_scan_active:
-                self.reader.stop_auto_scan(timeout=1.5)
-        except Exception as e:
-            logger.error(f"Остановка автосканирования при закрытии: {e}",
-                         exc_info=True)
+            logger.debug("?? ??????? ?????? ?????? ????", exc_info=True)
 
-        # Даём рабочим операциям короткое время обработать отмену. Не ждём
-        # бесконечно: GUI должен закрываться даже при зависшем внешнем API.
-        deadline = time.monotonic() + 1.5
+        # Always request stop: the active flag may already be false while the
+        # worker is still unwinding its current capture/scan operation.
+        try:
+            self.reader.stop_auto_scan(timeout=0)
+        except Exception:
+            logger.error("?????? ????????? ????????????????", exc_info=True)
+
+        self.status_dot.setText("?  ??????????")
+        self.status_dot.setStyleSheet(f"color: {YELLOW};")
+        self.setEnabled(False)
+        self._shutdown_timer = QTimer(self)
+        self._shutdown_timer.setInterval(100)
+        self._shutdown_timer.timeout.connect(self._poll_shutdown)
+        self._shutdown_timer.start()
+        self._poll_shutdown()
+
+    def _poll_shutdown(self):
+        """Quit only after tracked workers and auto-scan have actually exited."""
+        try:
+            self.reader.stop_auto_scan(timeout=0)
+        except Exception:
+            logger.error("?????? ???????? ???????????????? ??? ????????", exc_info=True)
+
         with self._workers_lock:
             workers = list(self._workers)
-        for worker in workers:
-            if worker is threading.current_thread():
-                continue
-            worker.join(max(0.0, deadline - time.monotonic()))
-        alive = [w.name for w in workers if w.is_alive()]
+            finished = [worker for worker in workers if not worker.is_alive()]
+            for worker in finished:
+                self._workers.discard(worker)
+        alive = [worker.name for worker in workers
+                 if worker is not threading.current_thread() and worker.is_alive()]
+
+        auto_thread = getattr(self.reader, "_auto_scan_thread", None)
+        if (auto_thread is not None and auto_thread is not threading.current_thread()
+                and auto_thread.is_alive()):
+            alive.append(auto_thread.name or "auto-scan")
+
         if alive:
-            logger.warning("При закрытии остались активные worker-потоки: %s",
-                           ", ".join(alive))
+            if not self._shutdown_logged_workers:
+                logger.info("???????? ?????????? ??????? ???????: %s", ", ".join(alive))
+                self._shutdown_logged_workers = True
+            started_at = getattr(self, "_shutdown_started_at", time.monotonic())
+            elapsed = max(0.0, time.monotonic() - started_at)
+            if (elapsed >= 15.0
+                    and not getattr(self, "_shutdown_stall_warned", False)):
+                logger.warning(
+                    "Операция завершения длится %.1f с; ожидаются потоки: %s. "
+                    "Принудительное завершение небезопасно.",
+                    elapsed, ", ".join(alive),
+                )
+                self._shutdown_stall_warned = True
+                self.status_dot.setText("●  ОЖИДАНИЕ ОПЕРАЦИИ")
+            return
+
+        if self._shutdown_timer is not None:
+            self._shutdown_timer.stop()
+        self._shutdown_complete = True
+        logger.info("??? ??????? ?????? ?????????; ???????? Chest Scanner")
         app = QApplication.instance()
         if app is not None:
             app.quit()

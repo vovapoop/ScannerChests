@@ -1,14 +1,29 @@
 """ChestReader mixin: базовое состояние и инициализация."""
 import threading
+from contextlib import contextmanager, nullcontext
 
 from chest_scanner import paths, storage
 from chest_scanner.app_bootstrap import WINSOUND_AVAILABLE, winsound
-from chest_scanner.commons import ensure_directories, load_json, save_json
-from chest_scanner.config import activate_profile, load_profiles, validate_config
+from chest_scanner.commons import (
+    ensure_directories,
+    load_json_recover,
+    results_history_guard,
+    save_json,
+)
+from chest_scanner.config import (
+    activate_profile,
+    load_profiles,
+    profile_operation_guard,
+    save_profiles,
+    validate_config,
+)
 from chest_scanner.image_utils import phash, preprocess_icon
 from chest_scanner.items import normalize_items_db
 from chest_scanner.logging_setup import logger
-from chest_scanner.screenshot import capture_settings, configure_capture
+from chest_scanner.screenshot import (
+    capture_settings,
+    configure_capture,
+)
 from chest_scanner.template_cache import template_cache
 
 
@@ -23,18 +38,47 @@ class ScannerBaseMixin:
         profiles = load_profiles()
         activate_profile(profiles.get("active", "Default"))
         ensure_directories()
-        storage.init_db(paths.RESULTS_DB)
+        with results_history_guard(paths.RESULTS_FILE):
+            # SQLite is a rebuildable cache; a locked or unavailable cache must
+            # not prevent the application from starting with authoritative JSON.
+            try:
+                storage.init_db(paths.RESULTS_DB)
+            except (OSError, storage.sqlite3.Error) as exc:
+                logger.warning(
+                    f"SQLite history cache unavailable at startup; "
+                    f"continuing with JSON as authoritative: {exc}")
+            else:
+                # Recover the cache before this instance starts any scan worker.
+                try:
+                    if storage.reconcile_from_json(
+                            paths.RESULTS_DB, paths.RESULTS_FILE, paths.HISTORY_DIR):
+                        logger.info("SQLite history cache reconciled from JSON.")
+                except (OSError, UnicodeError, ValueError,
+                        storage.sqlite3.Error) as exc:
+                    logger.warning(
+                        f"Could not reconcile SQLite history cache; "
+                        f"JSON remains authoritative: {exc}")
 
-        raw_config = load_json(paths.CONFIG_FILE, {})
+        raw_config = load_json_recover(
+            paths.CONFIG_FILE, {}, lambda value: isinstance(value, dict))
         self.config, config_warnings = validate_config(raw_config)
         for w in config_warnings:
             logger.warning(f"[КОНФИГ] {w}")
-        save_json(paths.CONFIG_FILE, self.config)
+        configure_capture(self.config.get("capture_source"),
+                          self.config.get("game_window_title"))
+        save_json(paths.CONFIG_FILE, self.config, backup=True)
 
-        self.items_db = normalize_items_db(load_json(paths.ITEMS_FILE, {"items": []}))
-        save_json(paths.ITEMS_FILE, self.items_db)
+        raw_items = load_json_recover(
+            paths.ITEMS_FILE, {"items": []},
+            lambda value: isinstance(value, dict)
+            and isinstance(value.get("items"), list))
+        self.items_db = normalize_items_db(raw_items)
+        save_json(paths.ITEMS_FILE, self.items_db, backup=True)
 
         self.template_cache = template_cache
+        # Relative image references are reused across profiles. Clear entries
+        # from any previous reader/profile before resolving them in this one.
+        self.template_cache.invalidate()
 
         self.ref_w, self.ref_h = self.config["reference_screen_size"]
         self.grid = self.config["chest_grid"]
@@ -48,12 +92,16 @@ class ScannerBaseMixin:
         self.unknown_item_prompt = None
         self.unknown_item_category = "uncategorized"
         self._grid_debug_active = False
-        self._scan_lock = threading.Lock()
+        self._scan_lock = threading.RLock()
         self._scan_cancel_event = threading.Event()
+        self._scan_state_lock = threading.Lock()
+        self._scan_running = False
         self._scan_cancelled = False
         self.scan_progress_cb = None
         self._auto_scan_active = False
         self._auto_scan_thread = None
+        self._auto_scan_state_lock = threading.Lock()
+        self._auto_scan_stop_event = threading.Event()
         self._last_chest_pos = None
         self._stack_cache = {}
         self._phash_entries = []
@@ -124,8 +172,9 @@ class ScannerBaseMixin:
 
     # ── Отмена и прогресс сканирования ──
     def request_scan_cancel(self):
-        """Запрашивает отмену текущего сканирования (потоконезависимо)."""
-        self._scan_cancel_event.set()
+        """Request cancellation, synchronized with scan initialization."""
+        with self._scan_state_lock:
+            self._scan_cancel_event.set()
 
     def reset_scan_cancel(self):
         """Сбрасывает флаги отмены перед новым сканированием."""
@@ -155,20 +204,100 @@ class ScannerBaseMixin:
             logger.warning("Не найден шаблон пустого слота")
         logger.info("=" * 50)
 
+    @contextmanager
+    def _scanner_state_guard(self, blocking=True):
+        """Serialize mutations of scanner configuration and recognition state."""
+        lock = getattr(self, "_scan_lock", None)
+        if lock is None:
+            yield True
+            return
+        acquired = lock.acquire(blocking=blocking)
+        try:
+            yield acquired
+        finally:
+            if acquired:
+                lock.release()
+
+    def switch_profile(self, name):
+        """Wait for scans, then serialize the complete profile transition."""
+        scan_lock = getattr(self, "_scan_lock", None)
+        with scan_lock if scan_lock is not None else nullcontext():
+            with profile_operation_guard():
+                self._switch_profile_locked(name)
+
+    def _switch_profile_locked(self, name):
+        """Switch profiles transactionally and restore the old state on failure."""
+        path_fields = (
+            "PROFILE_DIR", "CONFIG_FILE", "ITEMS_FILE", "RESULTS_DIR",
+            "UNKNOWN_DIR", "UNKNOWN_QUEUE_FILE", "ITEM_IMAGES_DIR",
+            "RESULTS_FILE", "RESULTS_DB", "HISTORY_DIR",
+            "DISCORD_IDS_FILE", "DISCORD_WEBHOOK_FILE",
+        )
+        old_paths = {field: getattr(paths, field) for field in path_fields}
+        old_active = load_profiles().get("active", "Default")
+        state_fields = (
+            "config", "items_db", "ref_w", "ref_h", "grid",
+            "chest_template", "empty_slot_template", "digit_templates",
+            "last_chest_hash", "chest_was_open", "prompted_unknowns",
+            "_last_chest_pos", "_stack_cache", "_phash_entries",
+            "_detect_cache",
+        )
+        old_state = {}
+        for field in state_fields:
+            if hasattr(self, field):
+                value = getattr(self, field)
+                if field == "prompted_unknowns":
+                    value = set(value)
+                elif field == "_detect_cache":
+                    value = dict(value)
+                old_state[field] = value
+        old_capture = capture_settings()
+
+        try:
+            activate_profile(name)
+            self.reload_profile()
+        except Exception:
+            for field, value in old_paths.items():
+                setattr(paths, field, value)
+            for field, value in old_state.items():
+                setattr(self, field, value)
+            try:
+                profile_data = load_profiles()
+                profile_data["active"] = old_active
+                save_profiles(profile_data)
+            except Exception:
+                logger.exception("Could not restore active profile in registry")
+            try:
+                configure_capture(old_capture.get("source"),
+                                  old_capture.get("title"))
+            except Exception:
+                logger.exception("Could not restore capture configuration")
+            self.template_cache.invalidate()
+            raise
+
     def reload_profile(self):
+        with self._scanner_state_guard(blocking=True):
+            return self._reload_profile_locked()
+
+    def _reload_profile_locked(self):
         ensure_directories()
-        raw = load_json(paths.CONFIG_FILE, {})
+        raw = load_json_recover(
+            paths.CONFIG_FILE, {}, lambda value: isinstance(value, dict))
         self.config, warns = validate_config(raw)
         for w in warns:
             logger.warning(f"[КОНФИГ] {w}")
-        save_json(paths.CONFIG_FILE, self.config)
+        save_json(paths.CONFIG_FILE, self.config, backup=True)
         # Источник захвата (весь экран / окно игры) применяется при каждой
         # загрузке профиля: старт приложения, смена профиля, «Сохранить».
         configure_capture(self.config.get("capture_source"),
                           self.config.get("game_window_title"))
         logger.info(f"[ЗАХВАТ] {capture_settings()}")
-        self.items_db = normalize_items_db(load_json(paths.ITEMS_FILE, {"items": []}))
-        save_json(paths.ITEMS_FILE, self.items_db)
+        raw_items = load_json_recover(
+            paths.ITEMS_FILE, {"items": []},
+            lambda value: isinstance(value, dict)
+            and isinstance(value.get("items"), list))
+        self.items_db = normalize_items_db(raw_items)
+        save_json(paths.ITEMS_FILE, self.items_db, backup=True)
         self.ref_w, self.ref_h = self.config["reference_screen_size"]
         self.grid = self.config["chest_grid"]
         self.template_cache.invalidate()

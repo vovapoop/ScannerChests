@@ -133,12 +133,16 @@ def test_wgc_session_stops_once_after_first_frame(monkeypatch):
     from chest_scanner import capture
 
     frame = np.full((40, 60, 4), 120, dtype=np.uint8)
-    control = SimpleNamespace(stop_calls=0)
+    control = SimpleNamespace(stop_calls=0, wait_calls=0)
 
     def stop():
         control.stop_calls += 1
 
+    def wait():
+        control.wait_calls += 1
+
     control.stop = stop
+    control.wait = wait
 
     class FakeCapture:
         def __init__(self, **_kwargs):
@@ -168,3 +172,186 @@ def test_wgc_session_stops_once_after_first_frame(monkeypatch):
     assert result.shape == (40, 60, 3)
     assert np.all(result == 120)
     assert control.stop_calls == 1
+    assert control.wait_calls == 1
+
+
+
+def test_wgc_lock_contention_does_not_start_another_session(monkeypatch):
+    """A concurrent request times out instead of creating a second WGC session."""
+    import sys
+    import types
+
+    from chest_scanner import capture
+
+    starts = []
+
+    class FakeCapture:
+        def __init__(self, **_kwargs):
+            starts.append("created")
+
+    fake_module = types.ModuleType("windows_capture")
+    fake_module.WindowsCapture = FakeCapture
+    monkeypatch.setitem(sys.modules, "windows_capture", fake_module)
+    monkeypatch.setattr(capture, "os", type("OS", (), {"name": "nt"})())
+    monkeypatch.setattr(capture, "find_game_window", lambda _title: 123)
+
+    assert capture._capture_lock.acquire(blocking=False)
+    try:
+        assert capture.grab_window("Minecraft", timeout=0) is None
+        assert starts == []
+    finally:
+        capture._capture_lock.release()
+
+
+def test_wgc_invalid_timeout_uses_default(monkeypatch):
+    """Invalid timeout input must not leave a started capture session behind."""
+    import sys
+    import types
+    from types import SimpleNamespace
+
+    from chest_scanner import capture
+
+    frame = np.full((40, 60, 4), 120, dtype=np.uint8)
+    control = SimpleNamespace(stop_calls=0, wait_calls=0)
+    control.stop = lambda: setattr(control, "stop_calls", control.stop_calls + 1)
+    control.wait = lambda: setattr(control, "wait_calls", control.wait_calls + 1)
+
+    class FakeCapture:
+        def __init__(self, **_kwargs):
+            self.handlers = {}
+
+        def event(self, fn):
+            self.handlers[fn.__name__] = fn
+            return fn
+
+        def start_free_threaded(self):
+            self.handlers["on_frame_arrived"](
+                SimpleNamespace(frame_buffer=frame), control)
+            return control
+
+    fake_module = types.ModuleType("windows_capture")
+    fake_module.WindowsCapture = FakeCapture
+    monkeypatch.setitem(sys.modules, "windows_capture", fake_module)
+    monkeypatch.setattr(capture, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(capture, "find_game_window", lambda _title: 123)
+    monkeypatch.setattr(capture, "_crop_to_client", lambda img, _hwnd: img)
+
+    result = capture.grab_window("Minecraft", timeout="invalid")
+    assert result.shape == (40, 60, 3)
+    assert control.stop_calls == 1
+    assert control.wait_calls == 1
+
+
+def test_client_crop_rect_maps_coordinates_with_different_frame_scale():
+    from chest_scanner.capture import _client_crop_rect
+
+    # Window bounds are 1000x600 logical pixels; the WGC frame is 2x.
+    rect = _client_crop_rect(
+        (1200, 2000, 4),
+        (108, 130, 984, 540),
+        (100, 100, 1100, 700),
+    )
+    assert rect == (16, 60, 1984, 1140)
+
+
+def test_client_crop_rect_rejects_client_area_outside_window_bounds():
+    from chest_scanner.capture import _client_crop_rect
+
+    assert _client_crop_rect(
+        (600, 1000, 4), (90, 130, 984, 540), (100, 100, 1100, 700)
+    ) is None
+    assert _client_crop_rect(
+        (600, 1000, 4), (108, 130, 1000, 540), (100, 100, 1100, 700)
+    ) is None
+
+
+def test_client_crop_rect_rejects_invalid_dimensions_and_non_finite_values():
+    from chest_scanner.capture import _client_crop_rect
+
+    bounds = (100, 100, 1100, 700)
+    assert _client_crop_rect((0, 1000, 4), (108, 130, 984, 540), bounds) is None
+    assert _client_crop_rect((600, 1000, 4), (108, 130, 0, 540), bounds) is None
+    assert _client_crop_rect(
+        (600, 1000, 4), (108, float("nan"), 984, 540), bounds
+    ) is None
+    assert _client_crop_rect(
+        (600, 1000, 4), (108, 130, 984, 540), (100, 100, 100, 700)
+    ) is None
+
+
+def test_crop_to_client_uses_validated_scaled_rectangle(monkeypatch):
+    from chest_scanner import capture
+
+    frame = np.zeros((1200, 2000, 3), dtype=np.uint8)
+    monkeypatch.setattr(capture, "_client_bounds", lambda _hwnd: (108, 130, 984, 540))
+    monkeypatch.setattr(capture, "_dwm_frame_bounds", lambda _hwnd: (100, 100, 1100, 700))
+    cropped = capture._crop_to_client(frame, 123)
+    assert cropped.shape == (1080, 1968, 3)
+
+
+def test_crop_to_client_rejects_invalid_geometry_instead_of_returning_full_frame(monkeypatch):
+    from chest_scanner import capture
+
+    frame = np.zeros((600, 1000, 3), dtype=np.uint8)
+    monkeypatch.setattr(capture, "_client_bounds", lambda _hwnd: (0, 0, 1000, 600))
+    monkeypatch.setattr(capture, "_dwm_frame_bounds", lambda _hwnd: (100, 100, 1100, 700))
+    assert capture._crop_to_client(frame, 123) is None
+
+
+
+def test_wgc_stuck_native_shutdown_returns_and_keeps_lock_until_native_exit(monkeypatch):
+    import sys
+    import threading
+    import time
+    import types
+    from types import SimpleNamespace
+
+    from chest_scanner import capture
+
+    frame = np.full((40, 60, 4), 120, dtype=np.uint8)
+    native_release = threading.Event()
+    control = SimpleNamespace(stop_calls=0, wait_calls=0)
+    control.stop = lambda: setattr(control, "stop_calls", control.stop_calls + 1)
+
+    def wait_for_native():
+        control.wait_calls += 1
+        native_release.wait()
+
+    control.wait = wait_for_native
+
+    class FakeCapture:
+        def __init__(self, **_kwargs):
+            self.handlers = {}
+
+        def event(self, fn):
+            self.handlers[fn.__name__] = fn
+            return fn
+
+        def start_free_threaded(self):
+            self.handlers["on_frame_arrived"](
+                SimpleNamespace(frame_buffer=frame), control)
+            return control
+
+    fake_module = types.ModuleType("windows_capture")
+    fake_module.WindowsCapture = FakeCapture
+    monkeypatch.setitem(sys.modules, "windows_capture", fake_module)
+    monkeypatch.setattr(capture, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(capture, "find_game_window", lambda _title: 123)
+    monkeypatch.setattr(capture, "_crop_to_client", lambda img, _hwnd: img)
+    monkeypatch.setattr(capture, "WGC_STOP_TIMEOUT", 0.02)
+
+    try:
+        result = capture.grab_window("Minecraft", timeout=0.1)
+        assert result.shape == (40, 60, 3)
+        assert control.stop_calls == 1
+        assert capture._capture_lock.locked()
+
+        # A second call must not start a competing native capture session.
+        assert capture.grab_window("Minecraft", timeout=0) is None
+    finally:
+        native_release.set()
+        deadline = time.monotonic() + 1.0
+        while capture._capture_lock.locked() and time.monotonic() < deadline:
+            time.sleep(0.005)
+
+    assert not capture._capture_lock.locked()

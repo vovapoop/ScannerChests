@@ -1,5 +1,6 @@
 """ChestReader mixin: сетка, слоты, калибровка и отладка."""
 import glob
+import math
 import os
 import time
 
@@ -16,25 +17,49 @@ from chest_scanner.screenshot import screenshot_bgr
 class GridMixin:
     """Methods extracted from the original ChestReader."""
 
-    def get_grid_rect(self, screen, grid=None):
+    def get_grid_rect(self, screen, grid=None, reference_size=None):
         """Прямоугольник сетки; `grid` позволяет подменить координаты
         (используется живым предпросмотром настроек без мутации self.grid)."""
-        g = grid or self.grid
+        g = self.grid if grid is None else grid
         sh, sw = screen.shape[:2]
-        sx, sy = sw / self.ref_w, sh / self.ref_h
-        x1 = round(g["x1"] * sx)
-        y1 = round(g["y1"] * sy)
-        x2 = round(g["x2"] * sx)
-        y2 = round(g["y2"] * sy)
+        empty = {"x": 0, "y": 0, "width": 0, "height": 0,
+                 "columns": 0, "rows": 0}
+        try:
+            ref_w, ref_h = (self.ref_w, self.ref_h) if reference_size is None else reference_size
+            ref_w, ref_h = float(ref_w), float(ref_h)
+            coords = [float(g[k]) for k in ("x1", "y1", "x2", "y2")]
+            columns, rows = g["columns"], g["rows"]
+            if (not all(math.isfinite(v) for v in (ref_w, ref_h, *coords))
+                    or ref_w <= 0 or ref_h <= 0
+                    or isinstance(columns, bool) or isinstance(rows, bool)
+                    or int(columns) != columns or int(rows) != rows
+                    or int(columns) < 1 or int(rows) < 1):
+                return empty
+            columns, rows = int(columns), int(rows)
+        except (KeyError, TypeError, ValueError, OverflowError):
+            return empty
+
+        sx, sy = sw / ref_w, sh / ref_h
+        x1, y1, x2, y2 = (round(coords[0] * sx), round(coords[1] * sy),
+                          round(coords[2] * sx), round(coords[3] * sy))
         if x2 < x1:
             x1, x2 = x2, x1
         if y2 < y1:
             y1, y2 = y2, y1
-        return {"x": x1, "y": y1, "width": x2 - x1, "height": y2 - y1,
-                "columns": g["columns"], "rows": g["rows"]}
 
-    def get_slots(self, screen, grid=None):
-        grid = self.get_grid_rect(screen, grid)
+        # Never allow NumPy's negative-slice semantics to wrap an ROI around
+        # the opposite edge of the captured frame. A partially visible grid
+        # is not a valid calibration, so skip it instead of scanning bad slots.
+        if x1 < 0 or y1 < 0 or x2 > sw or y2 > sh or x2 <= x1 or y2 <= y1:
+            return {**empty, "columns": columns, "rows": rows}
+        return {"x": x1, "y": y1, "width": x2 - x1, "height": y2 - y1,
+                "columns": columns, "rows": rows}
+
+    def get_slots(self, screen, grid=None, reference_size=None):
+        grid = self.get_grid_rect(screen, grid, reference_size=reference_size)
+        if (grid["width"] <= 0 or grid["height"] <= 0
+                or grid["columns"] <= 0 or grid["rows"] <= 0):
+            return []
         sw = grid["width"] / grid["columns"]
         sh = grid["height"] / grid["rows"]
         slots = []
@@ -383,6 +408,16 @@ class GridMixin:
         return best
 
     def auto_detect_grid(self):
+        guard = getattr(self, "_scanner_state_guard", None)
+        if guard is None:
+            return self._auto_detect_grid_locked()
+        with guard(blocking=False) as acquired:
+            if not acquired:
+                logger.warning("Grid auto-detection skipped: scanner is busy")
+                return None
+            return self._auto_detect_grid_locked()
+
+    def _auto_detect_grid_locked(self):
         """Однократное автоопределение сетки открытого сундука.
 
         Ищет сетку на скриншоте, пересчитывает координаты в
@@ -551,6 +586,16 @@ class GridMixin:
             self._grid_debug_active = False
 
     def calibrate_grid_interactive(self):
+        guard = getattr(self, "_scanner_state_guard", None)
+        if guard is None:
+            return self._calibrate_grid_interactive_locked()
+        with guard(blocking=False) as acquired:
+            if not acquired:
+                logger.warning("Grid calibration skipped: scanner is busy")
+                return None
+            return self._calibrate_grid_interactive_locked()
+
+    def _calibrate_grid_interactive_locked(self):
         screen = screenshot_bgr()
         sh, sw = screen.shape[:2]
         columns = self.grid.get("columns", 9)
@@ -681,7 +726,7 @@ class GridMixin:
     ROI_CHECK_SLOTS = 4
 
     def diagnose_roi_settings(self, screen=None, icon_roi=None, count_roi=None,
-                              grid=None):
+                              grid=None, reference_size=None):
         """Проверка настроек областей иконки и цифр без полного скана.
 
         Возвращает {"overlay", "slots", "issues"}:
@@ -733,13 +778,13 @@ class GridMixin:
 
         if screen is None:
             screen = screenshot_bgr()
-        grid_rect = self.get_grid_rect(screen, grid)
+        grid_rect = self.get_grid_rect(screen, grid, reference_size=reference_size)
         overlay = None
         slots_out = []
         filled = 0
         if rois_ok:
             # `grid` — переопределение в стиле конфига (x1..rows) либо None.
-            for slot in self.get_slots(screen, grid):
+            for slot in self.get_slots(screen, grid, reference_size=reference_size):
                 si = slot["image"]
                 if si is None or si.size == 0 or self._slot_looks_empty(si):
                     continue
@@ -775,8 +820,10 @@ class GridMixin:
 
     def _slot_looks_empty(self, si):
         """Заполненность слота: шаблон пустого слота либо эвристика по яркости."""
-        if getattr(self, "empty_slot_template", None) is not None \
-                and hasattr(self, "is_empty_slot"):
+        # Keep the diagnostic preview on the exact same empty-slot predicate
+        # as scan_chest/_process_slot. In particular, ItemsMixin deliberately
+        # treats slots as non-empty when no template is configured.
+        if hasattr(self, "is_empty_slot"):
             return self.is_empty_slot(si)
         gray = cv2.cvtColor(si, cv2.COLOR_BGR2GRAY)
         # Пустой слот тёмный и однородный; ярких пикселей почти нет.

@@ -6,7 +6,7 @@ import time
 
 import cv2
 import requests
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -42,6 +42,7 @@ from chest_scanner.screenshot import (
 
 NAV_ITEMS = [
     ("general", "⚙  Основные"),
+    ("capture", "🖥️  Захват экрана"),
     ("detection", "🎯  Распознавание"),
     ("grid", "🧱  Сетка"),
     ("templates", "🖼  Шаблоны"),
@@ -91,6 +92,18 @@ class PreviewLabel(QLabel):
         self._apply_scale()
 
 
+class _RoiPreviewSignals(QObject):
+    """Deliver background preview results safely to the GUI thread."""
+
+    finished = Signal(int, object, object)
+
+
+class _WebhookSignals(QObject):
+    """Deliver webhook-check results safely to the settings dialog."""
+
+    finished = Signal(bool, str)
+
+
 class SettingsDialog(QDialog):
     """Настройки: разделы слева, содержимое справа, «Сохранить» внизу."""
 
@@ -137,6 +150,12 @@ class SettingsDialog(QDialog):
         self._pending_apply = False
         self._apply_tries = 0
         self._closing = False
+        self._roi_busy = False
+        self._roi_generation = 0
+        self._roi_signals = _RoiPreviewSignals()
+        self._roi_signals.finished.connect(self._apply_roi_preview_result)
+        self._webhook_signals = _WebhookSignals(self)
+        self._webhook_signals.finished.connect(self._apply_webhook_result)
         self._tour = None
         self._init_vars()
         self._build_pages()
@@ -204,7 +223,7 @@ class SettingsDialog(QDialog):
         v["delete_old"].setChecked(bool(cfg.get("discord_delete_old_messages", True)))
         v["stack_size"] = QLineEdit(str(dm.get("stack_size", 64)))
         hk = cfg.get("hotkeys", {}) if isinstance(cfg.get("hotkeys"), dict) else {}
-        for action in ("toggle_window", "scan", "discord", "exit"):
+        for action in ("toggle_window", "scan", "exit"):
             v[f"hk_{action}"] = QLineEdit(str(hk.get(action, "") or ""))
         self._vars = v
 
@@ -244,6 +263,7 @@ class SettingsDialog(QDialog):
         v = self._vars
         builders = {
             "general": self._page_general,
+            "capture": self._page_capture,
             "detection": self._page_detection,
             "grid": self._page_grid,
             "templates": self._page_templates,
@@ -271,6 +291,7 @@ class SettingsDialog(QDialog):
         is_grid = 0 <= row < len(NAV_ITEMS) and NAV_ITEMS[row][0] == "grid"
         # Не оставляем таймер предпоказа работать при уходе со страницы сетки.
         if not is_grid:
+            self._roi_generation += 1
             for name in ("_roi_timer", "_roi_debounce_timer"):
                 timer = getattr(self, name, None)
                 if timer is not None:
@@ -307,7 +328,7 @@ class SettingsDialog(QDialog):
                 "Выберите, что снимать: весь экран или окно игры. Для окна "
                 "укажите заголовок окна (например, Minecraft).",
                 target=self._tour_card("Захват изображения"),
-                before=lambda: self._tour_page("general", "Захват изображения"),
+                before=lambda: self._tour_page("capture", "Захват изображения"),
                 require=self._tour_capture_ok,
                 hint="Выберите источник захвата; для окна игры заполните заголовок."),
             TourStep(
@@ -348,7 +369,7 @@ class SettingsDialog(QDialog):
                 "Готово",
                 "Сетка, шаблоны и захват настроены. Нажмите «Готово» — настройки "
                 "сохранятся и сразу применятся.",
-                before=lambda: self._tour_page("general", "Захват изображения")),
+                before=lambda: self._tour_page("capture", "Захват изображения")),
         ]
         self._tour = TourOverlay(self, steps, on_finish=self._tour_finished)
 
@@ -511,68 +532,114 @@ class SettingsDialog(QDialog):
         return screenshot_bgr()
 
     def _refresh_roi_preview(self):
+        """Build the live preview off the GUI thread to keep settings responsive."""
         if (not hasattr(self, "roi_preview") or not self.isVisible()
                 or getattr(self, "_closing", False)
                 or self.stack.currentIndex() >= len(NAV_ITEMS)
                 or NAV_ITEMS[self.stack.currentIndex()][0] != "grid"):
             return
-        if getattr(self, "_roi_busy", False):
+        if self._roi_busy:
             return
-        self._roi_busy = True
-        try:
-            icon_roi = self._read_roi_fields("icon")
-            count_roi = self._read_roi_fields("count")
-            if icon_roi is None or count_roi is None:
-                self.roi_preview.clear_frame(
-                    "Введите четыре числа в областях иконки и цифр.")
-                self.roi_status.setText("")
-                return
-            grid = self._grid_from_fields()
-            if grid is None:
-                self.roi_preview.clear_frame(
-                    "Проверьте границы и размер сетки (X1…Y2, столбцы, строки).")
-                self.roi_status.setText("")
-                return
-            try:
-                screen = self._capture_for_preview()
-                report = self.reader.diagnose_roi_settings(
-                    screen=screen, icon_roi=icon_roi, count_roi=count_roi,
-                    grid=grid)
-            except Exception as e:
-                self.roi_preview.clear_frame(f"Предпоказ недоступен: {e}")
-                self.roi_status.setText("")
-                return
-            issues = report.get("issues") or []
-            self.roi_preview.set_frame(report.get("overlay"),
-                                       issues[0] if issues else None)
-            slots = report.get("slots") or []
-            if slots:
-                sample = slots[0]
-                self.icon_crop_preview.set_frame(sample.get("icon"),
-                                                 "Иконка недоступна")
-                self.count_crop_preview.set_frame(sample.get("count"),
-                                                  "Область цифр недоступна")
-                binary = sample.get("binary")
-                if binary is not None and getattr(binary, "size", 0):
-                    binary_bgr = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
-                    self.count_mask_preview.set_frame(binary_bgr)
-                else:
-                    self.count_mask_preview.clear_frame("Маска не построена")
-                qtys = ", ".join(
-                    f"r{s['row']}c{s['column']}={s['quantity']}" for s in slots)
-                self.roi_status.setText(
-                    f"Вырезки показаны для слота r{sample['row']}c{sample['column']}. "
-                    f"Количество: {qtys}")
-            else:
-                for crop_preview in (self.icon_crop_preview,
-                                     self.count_crop_preview,
-                                     self.count_mask_preview):
-                    crop_preview.clear_frame("Нет заполненного слота")
-                self.roi_status.setText("Заполненных слотов не видно.")
-        finally:
-            self._roi_busy = False
 
-    def _page_general(self, lay, v):
+        icon_roi = self._read_roi_fields("icon")
+        count_roi = self._read_roi_fields("count")
+        if icon_roi is None or count_roi is None:
+            self.roi_preview.clear_frame(
+                "??????? ?????? ????? ? ???????? ?????? ? ????.")
+            self.roi_status.setText("")
+            return
+        grid = self._grid_from_fields()
+        try:
+            reference_size = (int(float(self._vars["ref_w"].text())),
+                              int(float(self._vars["ref_h"].text())))
+            if min(reference_size) <= 0:
+                raise ValueError("??????? ?????????? ?????? ???? ?????? ????")
+        except (ValueError, OverflowError):
+            reference_size = None
+        if grid is None or reference_size is None:
+            self.roi_preview.clear_frame(
+                "????????? ??????? ? ?????? ????? (X1?Y2, ???????, ??????).")
+            self.roi_status.setText("")
+            return
+
+        self._roi_busy = True
+        generation = self._roi_generation
+        signals = self._roi_signals
+        reader = self.reader
+        capture = self._capture_for_preview
+
+        def worker():
+            report = None
+            error = None
+            try:
+                screen = capture()
+                diagnose_args = {
+                    "screen": screen, "icon_roi": icon_roi,
+                    "count_roi": count_roi, "grid": grid,
+                }
+                # ??????????? reader-???????? ? ????????? ???????? ??????????
+                # ????? ?? ????? ?????????? ????????; ???????? ChestReader
+                # ?????? ????????????? ref_w/ref_h.
+                if hasattr(reader, "ref_w") and hasattr(reader, "ref_h"):
+                    diagnose_args["reference_size"] = reference_size
+                report = reader.diagnose_roi_settings(**diagnose_args)
+            except Exception as exc:
+                error = str(exc)
+            try:
+                signals.finished.emit(generation, report, error)
+            except RuntimeError:
+                # The dialog may have been destroyed while capture was running.
+                pass
+
+        try:
+            threading.Thread(target=worker, name="roi-preview", daemon=True).start()
+        except Exception as exc:
+            self._roi_busy = False
+            self.roi_preview.clear_frame(f"???????????? ??????????: {exc}")
+
+    def _apply_roi_preview_result(self, generation, report, error):
+        """Render a completed preview only if it still belongs to this page."""
+        self._roi_busy = False
+        if (getattr(self, "_closing", False) or generation != self._roi_generation
+                or not self.isVisible() or self.stack.currentIndex() >= len(NAV_ITEMS)
+                or NAV_ITEMS[self.stack.currentIndex()][0] != "grid"):
+            return
+        if error is not None or report is None:
+            self.roi_preview.clear_frame(
+                f"???????????? ??????????: {error or '??? ???????????'}")
+            self.roi_status.setText("")
+            return
+
+        issues = report.get("issues") or []
+        self.roi_preview.set_frame(report.get("overlay"),
+                                   issues[0] if issues else None)
+        slots = report.get("slots") or []
+        if slots:
+            sample = slots[0]
+            self.icon_crop_preview.set_frame(sample.get("icon"),
+                                             "?????? ??????????")
+            self.count_crop_preview.set_frame(sample.get("count"),
+                                              "??????? ???? ??????????")
+            binary = sample.get("binary")
+            if binary is not None and getattr(binary, "size", 0):
+                binary_bgr = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+                self.count_mask_preview.set_frame(binary_bgr)
+            else:
+                self.count_mask_preview.clear_frame("????? ?? ?????????")
+            qtys = ", ".join(
+                f"r{s['row']}c{s['column']}={s['quantity']}" for s in slots)
+            self.roi_status.setText(
+                f"??????? ???????? ??? ????? r{sample['row']}c{sample['column']}. "
+                f"??????????: {qtys}")
+        else:
+            for crop_preview in (self.icon_crop_preview,
+                                 self.count_crop_preview,
+                                 self.count_mask_preview):
+                crop_preview.clear_frame("??? ???????????? ?????")
+            self.roi_status.setText("??????????? ?????? ?? ?????.")
+
+    def _page_capture(self, lay, v):
+        """Параметры источника изображения и опорного разрешения."""
         card_src = SettingCard("Захват изображения",
                                "Что снимать для сканирования: весь экран или окно игры.")
         row_src = QHBoxLayout()
@@ -606,6 +673,8 @@ class SettingsDialog(QDialog):
         card.content.addLayout(row)
         lay.addWidget(card)
 
+
+    def _page_general(self, lay, v):
         card2 = SettingCard("Сканирование")
         self._add_check(card2, "Автосканирование при запуске", v["auto_scan"])
         self._add_check(card2, "Показывать кандидатов в логе", v["print_candidates"])
@@ -621,10 +690,11 @@ class SettingsDialog(QDialog):
         lay.addWidget(card_t)
 
         card3 = SettingCard("Горячие клавиши",
-                            "Пустое поле отключает действие. "
-                            "Имена клавиш: f1–f12, цифры, буквы.")
+                            "Одна клавиша без Ctrl, Alt, Shift и Win. "
+                            "Поддерживаются F1–F24, цифры и буквы. "
+                            "Пустое поле отключает действие.")
         for label, key in [("Показать окно", "hk_toggle_window"),
-                           ("Сканирование", "hk_scan"), ("Discord", "hk_discord"),
+                           ("Сканирование", "hk_scan"),
                            ("Выход", "hk_exit")]:
             v[key].setFixedWidth(120)
             self._add_entry(card3, label, v[key])
@@ -784,7 +854,8 @@ class SettingsDialog(QDialog):
         """Любая правка поля запускает отложенное сохранение в конфиг."""
         v = self._vars
         for key in ("ref_w", "ref_h", "game_window_title", "webhook",
-                    "discord_env", "max_items", "stack_size"):
+                    "discord_env", "max_items", "stack_size", "hk_toggle_window",
+                    "hk_scan", "hk_exit"):
             v[key].textChanged.connect(self._schedule_autosave)
         for i in range(4):
             v[f"icon_{i}"].textChanged.connect(self._schedule_autosave)
@@ -876,11 +947,14 @@ class SettingsDialog(QDialog):
             QTimer.singleShot(500, self._apply_runtime)
             return
         self._apply_tries = 0
-        self._pending_apply = False
         try:
             was_auto = main.reader.auto_scan_active
-            if was_auto:
-                main.reader.stop_auto_scan()
+            if was_auto and not main.reader.stop_auto_scan():
+                self._apply_tries = tries + 1
+                self._pending_apply = True
+                QTimer.singleShot(200, self._apply_runtime)
+                return
+            self._pending_apply = False
             main.reader.reload_profile()
             # Запущенный автоскан не должен гаснуть от правки настроек.
             if was_auto or main.reader.config.get("auto_scan_enabled", False):
@@ -936,31 +1010,42 @@ class SettingsDialog(QDialog):
         self.status_lbl.setText("Проверка...")
         self.status_lbl.setStyleSheet(f"color: {PALETTE['YELLOW']};")
 
+        signals = self._webhook_signals
+
         def worker():
             try:
                 r = requests.get(url, timeout=10)
                 ok = r.status_code == 200
-                msg = "Webhook доступен." if ok else f"HTTP {r.status_code}"
-            except requests.RequestException as e:
+                msg = "Webhook \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d." if ok else f"HTTP {r.status_code}"
+            except Exception as e:
+                # Always report unexpected worker failures to release the UI state.
                 ok, msg = False, str(e)
+            try:
+                signals.finished.emit(ok, msg)
+            except RuntimeError:
+                # The dialog (and its signal bridge) may close during the request.
+                pass
 
-            def apply():
-                try:
-                    self.status_lbl.setText(msg)
-                    self.status_lbl.setStyleSheet(
-                        f"color: {PALETTE['GREEN'] if ok else PALETTE['RED']};")
-                except Exception:
-                    pass
+        try:
+            threading.Thread(target=worker, daemon=True).start()
+        except Exception as exc:
+            self.status_lbl.setText(
+                f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0443: {exc}")
+            self.status_lbl.setStyleSheet(f"color: {PALETTE['RED']};")
 
-            QTimer.singleShot(0, apply)
-
-        threading.Thread(target=worker, daemon=True).start()
+    def _apply_webhook_result(self, ok, message):
+        """Update webhook status in the dialog's GUI thread."""
+        if self._closing:
+            return
+        self.status_lbl.setText(message)
+        self.status_lbl.setStyleSheet(
+            f"color: {PALETTE['GREEN'] if ok else PALETTE['RED']};")
 
     # ── Сохранение ──
     def _parse_int(self, widget, name):
         try:
-            return int(float(str(widget.text()).strip()))
-        except Exception:
+            return int(str(widget.text()).strip())
+        except (TypeError, ValueError):
             raise ValueError(f"{name}: нужно целое число.")
 
     def _parse_float(self, widget, name):
@@ -998,15 +1083,29 @@ class SettingsDialog(QDialog):
             names = ["X", "Y", "Ширина", "Высота"]
             icon = [self._parse_float(v[f"icon_{i}"], f"Иконка: {names[i]}") for i in range(4)]
             count = [self._parse_float(v[f"count_{i}"], f"Количество: {names[i]}") for i in range(4)]
-            if icon[2] <= 0 or icon[3] <= 0 or count[2] <= 0 or count[3] <= 0:
-                raise ValueError("Ширина и высота областей должны быть > 0.")
+            for title, roi in (("Иконка", icon), ("Количество", count)):
+                x, y, width, height = roi
+                if (width <= 0 or height <= 0 or x < 0 or y < 0
+                        or x + width > 1 or y + height > 1):
+                    raise ValueError(
+                        f"{title}: область должна находиться внутри слота "
+                        "(координаты 0–1, ширина и высота больше 0).")
             max_items = self._parse_int(v["max_items"], "Максимум предметов")
             stack_size = self._parse_int(v["stack_size"], "Размер стака")
             if max_items < 1 or stack_size < 1:
                 raise ValueError("Значения должны быть > 0.")
+            from chest_scanner.hotkeys import is_valid_hotkey_name
             hotkeys = {}
-            for action in ("toggle_window", "scan", "discord", "exit"):
-                hotkeys[action] = v[f"hk_{action}"].text().strip().lower()
+            used_keys = {}
+            for action in ("toggle_window", "scan", "exit"):
+                key = v[f"hk_{action}"].text().strip().lower()
+                if key and not is_valid_hotkey_name(key):
+                    raise ValueError("Укажите одну клавишу без Ctrl, Alt, Shift и Win (например, F6).")
+                if key and key in used_keys:
+                    raise ValueError(f"Клавиша {key.upper()} уже назначена другому действию.")
+                if key:
+                    used_keys[key] = action
+                hotkeys[action] = key
         except ValueError as e:
             self._save_error(str(e))
             return False

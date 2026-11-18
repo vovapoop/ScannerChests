@@ -106,6 +106,12 @@ def _vk_for_name(name):
     return None
 
 
+def is_valid_hotkey_name(name):
+    """True only for a single supported key (without Ctrl/Alt/Shift/Win)."""
+    value = (name or "").strip().lower()
+    return bool(value) and _vk_for_name(value) is not None
+
+
 _managers = {}
 _managers_lock = threading.Lock()
 
@@ -268,31 +274,27 @@ class WinHotkeyManager:
         with self._lock:
             if not self._running or not self._hwnd:
                 return False
-            parts = [p.strip().lower() for p in (name or "").split("+") if p.strip()]
-            if not parts:
+            key = (name or "").strip().lower()
+            if not is_valid_hotkey_name(key):
                 return False
-            vk = _vk_for_name(parts[-1])
-            if vk is None:
+            if key in self._names:
                 return False
-            mods = 0
-            for m, flag in _MOD_FLAGS:
-                if m in parts[:-1]:
-                    mods |= flag
+            vk = _vk_for_name(key)
             hid = self._next_id
             self._next_id += 1
-            ok = _user32.RegisterHotKey(self._hwnd, hid, mods | MOD_NOREPEAT, vk)
+            ok = _user32.RegisterHotKey(self._hwnd, hid, MOD_NOREPEAT, vk)
             if not ok:
                 return False
             self._callbacks[hid] = callback
-            self._names["+".join(parts)] = hid
+            self._names[key] = hid
             return True
 
     def unregister(self, name):
         with self._lock:
             if not self._hwnd:
                 return
-            parts = [p.strip().lower() for p in (name or "").split("+") if p.strip()]
-            hid = self._names.pop("+".join(parts), None)
+            key = (name or "").strip().lower()
+            hid = self._names.pop(key, None)
             if hid is None:
                 return
             try:

@@ -72,10 +72,11 @@ if errorlevel 1 ( echo [ERROR] Копирование items.json не удало
 copy /Y "LICENSE" "%DIST%\LICENSE" >nul
 if errorlevel 1 ( echo [ERROR] Копирование LICENSE не удалось. & pause & exit /b 1 )
 
-REM --- 6. Портативный архив -------------------------------------------
-echo [INFO] Создание ChestScanner-portable.zip ...
-powershell -NoProfile -Command "Compress-Archive -Path '%DIST%' -DestinationPath 'dist\ChestScanner-portable.zip' -Force"
-if errorlevel 1 ( echo [WARN] Создание zip не удалось. ) else ( echo [OK] dist\ChestScanner-portable.zip )
+REM --- 6. Портативный архив (только файлы приложения и стартовая база) ----
+echo [INFO] Создание безопасного ChestScanner-portable.zip ...
+"%BUILD_PY%" build_portable.py --dist "%DIST%" --output "dist\ChestScanner-portable.zip"
+if errorlevel 1 ( echo [ERROR] Создание portable ZIP не удалось. & pause & exit /b 1 )
+echo [OK] dist\ChestScanner-portable.zip
 
 REM --- 7. Установщик Inno Setup ---------------------------------------
 set "ISCC="

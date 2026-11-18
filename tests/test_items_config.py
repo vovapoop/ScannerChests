@@ -1,4 +1,6 @@
 """Тесты предметов (items) и конфигурации (config)."""
+import pytest
+
 from chest_scanner import paths
 from chest_scanner.config import validate_config
 from chest_scanner.items import is_safe_icon_path, normalize_items_db, sanitize_filename
@@ -42,6 +44,51 @@ def test_is_safe_icon_path():
     assert not is_safe_icon_path(None)
 
 
+def test_is_safe_icon_path_rejects_symlink_escape(tmp_path, monkeypatch):
+    profile = tmp_path / "profile"
+    outside = tmp_path / "outside"
+    (profile / "items").mkdir(parents=True)
+    outside.mkdir()
+    (outside / "secret.png").write_bytes(b"not-an-image")
+    monkeypatch.setattr(paths, "PROFILE_DIR", str(profile))
+    link = profile / "items" / "external.png"
+    try:
+        link.symlink_to(outside / "secret.png")
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks are unavailable on this platform")
+
+    assert not is_safe_icon_path("items/external.png")
+
+
+def test_is_safe_icon_path_rejects_symlinked_asset_directory(tmp_path, monkeypatch):
+    profile = tmp_path / "profile"
+    outside = tmp_path / "outside"
+    profile.mkdir()
+    outside.mkdir()
+    (outside / "icon.png").write_bytes(b"not-an-image")
+    monkeypatch.setattr(paths, "PROFILE_DIR", str(profile))
+    try:
+        (profile / "items").symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks are unavailable on this platform")
+
+    assert not is_safe_icon_path("items/icon.png")
+
+
+def test_is_safe_icon_path_allows_missing_photo_inside_profile(tmp_path, monkeypatch):
+    profile = tmp_path / "profile"
+    (profile / "items").mkdir(parents=True)
+    monkeypatch.setattr(paths, "PROFILE_DIR", str(profile))
+
+    assert is_safe_icon_path("items/missing.png")
+    normalized = normalize_items_db({"items": [{
+        "id": "keep", "name": "Keep me", "image": "items/missing.png"
+    }]})
+    assert normalized["items"][0]["id"] == "keep"
+    assert normalized["items"][0]["image"] == "items/missing.png"
+
+
+
 def test_normalize_items_db_filters_unsafe_paths():
     db = {"items": [{
         "id": "1", "name": "Тест",
@@ -58,7 +105,7 @@ def test_normalize_items_db_repairs_missing_fields():
     out = normalize_items_db({"items": [{"name": "Алмаз", "stack_size": "x"}]})
     assert out["items"][0]["stack_size"] == 64
     assert out["items"][0]["id"]
-    assert isinstance(out["items"][0]["aliases"], list)
+    assert "aliases" not in out["items"][0]
 
 
 def test_validate_config_repairs_broken_values():
@@ -84,9 +131,9 @@ def test_validate_config_merges_defaults():
 
 def test_default_hotkeys_use_toggle_window():
     hk = paths.DEFAULT_CONFIG["hotkeys"]
-    assert hk["toggle_window"] == "f6"  # вместо отладочных F6/F7
+    assert hk["toggle_window"] == "f6"
     assert hk["scan"] == "f8"
-    assert hk["discord"] == "f9"
+    assert "discord" not in hk
     assert hk["exit"] == "f10"
     assert "digits" not in hk and "grid" not in hk
 
@@ -98,3 +145,32 @@ def test_validate_config_drops_old_debug_hotkeys():
     assert "digits" not in hk and "grid" not in hk
     assert hk["toggle_window"] == "f6"
     assert hk["scan"] == "f8"
+
+
+def test_normalize_items_db_makes_duplicate_ids_unique_without_losing_items():
+    db = {"items": [
+        {"id": "shared", "name": "First", "stack_size": 64},
+        {"id": "shared", "name": "Second", "stack_size": 16},
+        {"id": "third", "name": "Third", "stack_size": 1},
+    ]}
+
+    out = normalize_items_db(db)
+    items = out["items"]
+
+    assert [item["name"] for item in items] == ["First", "Second", "Third"]
+    assert items[0]["id"] == "shared"
+    assert items[1]["id"] != "shared"
+    assert items[2]["id"] == "third"
+    assert len({item["id"] for item in items}) == len(items)
+    assert [item["stack_size"] for item in items] == [64, 16, 1]
+
+
+def test_normalize_items_db_generates_unique_ids_for_missing_and_blank_ids():
+    out = normalize_items_db({"items": [
+        {"id": "", "name": "First"},
+        {"name": "Second"},
+    ]})
+
+    ids = [item["id"] for item in out["items"]]
+    assert all(ids)
+    assert len(set(ids)) == 2

@@ -1,5 +1,6 @@
 """ChestReader mixin: детекция открытого сундука и автогенерация шаблонов."""
 import os
+import tempfile
 
 import cv2
 import numpy as np
@@ -18,12 +19,24 @@ class DetectionMixin:
     # размер найденной сетки (см. scale_from_grid_width).
 
     def auto_generate_templates(self, force=False):
+        guard = getattr(self, "_scanner_state_guard", None)
+        if guard is None:
+            return self._auto_generate_templates_locked(force=force)
+        with guard(blocking=False) as acquired:
+            if not acquired:
+                logger.warning("Template generation skipped: scanner is busy")
+                return []
+            return self._auto_generate_templates_locked(force=force)
+
+    def _auto_generate_templates_locked(self, force=False):
         screen = screenshot_bgr()
         sh, sw = screen.shape[:2]
         grid = self.get_grid_rect(screen)
         x, y, w, h = grid["x"], grid["y"], grid["width"], grid["height"]
-        created = []
 
+        # Prepare every candidate before touching either destination or the
+        # in-memory templates. A failed second write must not leave a mixed pair.
+        candidates = []
         chest_rel = self.config.get("chest_template", "assets/chest_open.png")
         chest_path = absolute_path(chest_rel)
         if chest_path and (force or not os.path.exists(chest_path)):
@@ -33,34 +46,92 @@ class DetectionMixin:
             if ty2 > ty1 and tx2 > tx1:
                 tpl = screen[ty1:ty2, tx1:tx2]
                 if tpl is not None and tpl.size > 0:
-                    os.makedirs(os.path.dirname(chest_path), exist_ok=True)
-                    cv2.imwrite(chest_path, tpl)
-                    self.chest_template = tpl
-                    created.append("chest")
-                    logger.info(f"Создан шаблон сундука: {chest_rel}")
+                    candidates.append(("chest", chest_rel, chest_path, tpl.copy()))
 
         empty_rel = self.config.get("empty_slot_template", "assets/empty_slot.png")
         empty_path = absolute_path(empty_rel)
         if empty_path and (force or not os.path.exists(empty_path)):
             slots = self.get_slots(screen)
-            imgs = [s["image"] for s in slots if s["image"] is not None and s["image"].size > 0]
+            imgs = [s["image"] for s in slots
+                    if s["image"] is not None and s["image"].size > 0]
             if imgs:
                 ref_shape = imgs[0].shape
-                valid = []
-                for img in imgs:
-                    if img.shape == ref_shape:
-                        valid.append(img)
+                valid = [img if img.shape == ref_shape else
+                         cv2.resize(img, (ref_shape[1], ref_shape[0]))
+                         for img in imgs]
+                median_slot = np.median(np.stack(valid, axis=0), axis=0).astype(np.uint8)
+                candidates.append(("empty_slot", empty_rel, empty_path, median_slot))
+
+        if not candidates:
+            return []
+        destinations = [os.path.normcase(os.path.abspath(item[2]))
+                        for item in candidates]
+        if len(destinations) != len(set(destinations)):
+            raise ValueError("Chest and empty-slot templates must use different paths")
+
+        staged = []
+        published = []
+        originals = {}
+        try:
+            for name, rel, target, image in candidates:
+                directory = os.path.dirname(target) or "."
+                os.makedirs(directory, exist_ok=True)
+                fd, temp_path = tempfile.mkstemp(
+                    prefix=f".{os.path.basename(target)}.",
+                    suffix=os.path.splitext(target)[1] or ".png", dir=directory)
+                os.close(fd)
+                staged.append((name, rel, target, temp_path, image))
+                if not cv2.imwrite(temp_path, image):
+                    raise OSError(f"OpenCV could not write template: {target}")
+                if os.path.exists(target):
+                    with open(target, "rb") as stream:
+                        originals[target] = stream.read()
+                else:
+                    originals[target] = None
+
+            for name, rel, target, temp_path, image in staged:
+                os.replace(temp_path, target)
+                published.append(target)
+        except Exception:
+            # Restore any destination already replaced. If rollback itself
+            # fails, retain the staged/original evidence and report loudly.
+            for target in reversed(published):
+                try:
+                    original = originals[target]
+                    if original is None:
+                        os.remove(target)
                     else:
-                        valid.append(cv2.resize(img, (ref_shape[1], ref_shape[0])))
-                if valid:
-                    stacked = np.stack(valid, axis=0)
-                    median_slot = np.median(stacked, axis=0).astype(np.uint8)
-                    os.makedirs(os.path.dirname(empty_path), exist_ok=True)
-                    cv2.imwrite(empty_path, median_slot)
-                    self.empty_slot_template = median_slot
-                    created.append("empty_slot")
-                    logger.info(f"Создан шаблон пустого слота: {empty_rel}")
-        return created
+                        directory = os.path.dirname(target) or "."
+                        fd, rollback_path = tempfile.mkstemp(
+                            prefix=f".{os.path.basename(target)}.rollback.",
+                            suffix=os.path.splitext(target)[1] or ".png", dir=directory)
+                        try:
+                            with os.fdopen(fd, "wb") as stream:
+                                stream.write(original)
+                                stream.flush()
+                                os.fsync(stream.fileno())
+                            os.replace(rollback_path, target)
+                        finally:
+                            if os.path.exists(rollback_path):
+                                os.remove(rollback_path)
+                except Exception:
+                    logger.exception("Template rollback failed for %s", target)
+            raise
+        finally:
+            for _name, _rel, _target, temp_path, _image in staged:
+                try:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                except OSError:
+                    logger.warning("Could not remove staged template %s", temp_path)
+
+        for name, rel, _target, _temp_path, image in staged:
+            if name == "chest":
+                self.chest_template = image
+            else:
+                self.empty_slot_template = image
+            logger.info("Created template: %s", rel)
+        return [name for name, _rel, _target, _temp_path, _image in staged]
 
     def _title_band(self, x, y, w, h):
         """Полоса допустимого положения левого верхнего угла шаблона сундука.

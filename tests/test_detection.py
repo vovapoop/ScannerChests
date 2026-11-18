@@ -64,12 +64,6 @@ def test_chest_closed_when_template_elsewhere():
     stub = DetStub()
     screen = _noise_screen()
     tpl = capture_template(screen)
-    # Убираем исходный фрагмент: иначе он сам остаётся идеальным совпадением
-    # в допустимой зоне и делает проверку независимой от переноса шаблона.
-    tx, ty = _expected_template_pos()
-    other = _noise_screen(seed=43)
-    screen[ty:ty + tpl.shape[0], tx:tx + tpl.shape[1]] = other[
-        ty:ty + tpl.shape[0], tx:tx + tpl.shape[1]]
     # Имитируем «другой интерфейс» в дальнем углу экрана.
     screen[40:40 + tpl.shape[0], 60:60 + tpl.shape[1]] = tpl
     stub.chest_template = tpl
@@ -143,3 +137,70 @@ def test_band_scales_with_resolution():
     tx, ty = 2 * 798 - 8, 2 * 351 - 86
     assert band[0] <= tx <= band[2]
     assert band[1] <= ty <= band[3]
+
+
+def _template_generation_reader(tmp_path):
+    reader = DetStub()
+    reader.config["chest_template"] = str(tmp_path / "chest.png")
+    reader.config["empty_slot_template"] = str(tmp_path / "empty.png")
+    reader.empty_slot_template = np.full((4, 4, 3), 17, dtype=np.uint8)
+    reader.chest_template = np.full((5, 5, 3), 23, dtype=np.uint8)
+    return reader
+
+
+def test_template_generation_checks_write_result_and_preserves_memory(tmp_path, monkeypatch):
+    import chest_scanner.scanner.detection as detection
+
+    reader = _template_generation_reader(tmp_path)
+    old_chest = reader.chest_template
+    old_empty = reader.empty_slot_template
+    screen = _noise_screen()
+    monkeypatch.setattr(detection, "screenshot_bgr", lambda: screen)
+    monkeypatch.setattr(detection.cv2, "imwrite", lambda *_args: False)
+
+    import pytest
+    with pytest.raises(OSError, match="could not write template"):
+        reader.auto_generate_templates(force=True)
+
+    assert reader.chest_template is old_chest
+    assert reader.empty_slot_template is old_empty
+    assert not (tmp_path / "chest.png").exists()
+    assert not (tmp_path / "empty.png").exists()
+    assert not list(tmp_path.glob(".*.png"))
+
+
+def test_template_generation_rolls_back_first_file_if_second_publish_fails(
+        tmp_path, monkeypatch):
+    import os
+
+    import chest_scanner.scanner.detection as detection
+
+    reader = _template_generation_reader(tmp_path)
+    chest_path = tmp_path / "chest.png"
+    empty_path = tmp_path / "empty.png"
+    chest_path.write_bytes(b"old-chest")
+    empty_path.write_bytes(b"old-empty")
+    old_chest = reader.chest_template
+    old_empty = reader.empty_slot_template
+    screen = _noise_screen()
+    monkeypatch.setattr(detection, "screenshot_bgr", lambda: screen)
+    real_replace = os.replace
+    failed = False
+
+    def fail_second_publish(source, target):
+        nonlocal failed
+        if os.fspath(target) == os.fspath(empty_path) and not failed:
+            failed = True
+            raise OSError("simulated second publish failure")
+        return real_replace(source, target)
+
+    monkeypatch.setattr(detection.os, "replace", fail_second_publish)
+    import pytest
+    with pytest.raises(OSError, match="second publish"):
+        reader.auto_generate_templates(force=True)
+
+    assert chest_path.read_bytes() == b"old-chest"
+    assert empty_path.read_bytes() == b"old-empty"
+    assert reader.chest_template is old_chest
+    assert reader.empty_slot_template is old_empty
+    assert not list(tmp_path.glob(".*.png"))

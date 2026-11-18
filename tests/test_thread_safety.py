@@ -62,12 +62,12 @@ def test_hotkey_manager_can_restart():
 
     first = WinHotkeyManager()
     assert first.start()
-    assert first.register("ctrl+alt+f13", lambda: None)
+    assert first.register("f13", lambda: None)
     first.stop()
 
     second = WinHotkeyManager()
     assert second.start(), "повторный запуск хоткеев после сохранения настроек"
-    assert second.register("ctrl+alt+f13", lambda: None)
+    assert second.register("f13", lambda: None)
     assert second.available
     second.stop()
 
@@ -82,8 +82,8 @@ def test_hotkey_message_runs_callback():
     hits = []
     mgr = WinHotkeyManager()
     assert mgr.start()
-    assert mgr.register("ctrl+alt+f14", lambda: hits.append(1))
-    hid = mgr._names["ctrl+alt+f14"]
+    assert mgr.register("f14", lambda: hits.append(1))
+    hid = mgr._names["f14"]
 
     user32 = ctypes.windll.user32
     user32.PeekMessageW.restype = wintypes.BOOL
@@ -102,3 +102,36 @@ def test_hotkey_message_runs_callback():
     mgr.stop()
 
     assert hits == [1], "WM_HOTKEY не дошёл до колбэка"
+
+
+
+def test_webhook_result_signal_delivers_in_gui_thread(qapp):
+    from PySide6.QtCore import QObject, QThread, Slot
+
+    from chest_scanner.gui.settings import _WebhookSignals
+
+    gui_thread = QThread.currentThread()
+    seen = {}
+
+    class _Receiver(QObject):
+        @Slot(bool, str)
+        def receive(self, ok, message):
+            seen["thread"] = QThread.currentThread()
+            seen["result"] = (ok, message)
+
+    signals = _WebhookSignals()
+    receiver = _Receiver()
+    signals.finished.connect(receiver.receive)
+
+    worker = threading.Thread(
+        target=lambda: signals.finished.emit(True, "Webhook \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d."))
+    worker.start()
+    worker.join()
+
+    deadline = time.time() + 3
+    while "result" not in seen and time.time() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+
+    assert seen.get("result") == (True, "Webhook \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d.")
+    assert seen["thread"] is gui_thread

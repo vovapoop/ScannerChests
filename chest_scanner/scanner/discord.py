@@ -25,7 +25,8 @@ class DiscordMixin:
         gt, au = {}, set()
         for ch in chests:
             for n, q in ch.get("totals", {}).items():
-                gt[n] = gt.get(n, 0) + q
+                if q is not None:
+                    gt[n] = gt.get(n, 0) + q
             for u in ch.get("unknown_items", []):
                 au.add(u)
         lt = chests[-1].get("timestamp", "?")
@@ -90,6 +91,27 @@ class DiscordMixin:
         if hdr:
             out.extend([hdr, ""])
         out.extend([s_ch, l_sc, "", i_ti, "", it])
+        qty_unknown = 0
+        for ch in chests:
+            count = ch.get("quantity_unknown_slots")
+            if count is None:
+                count = sum(
+                    1 for slot in (ch.get("slots") or [])
+                    if isinstance(slot, dict) and slot.get("item")
+                    and slot.get("quantity") is None
+                )
+            try:
+                parsed_count = max(0, int(count or 0))
+            except (TypeError, ValueError):
+                parsed_count = sum(
+                    1 for slot in (ch.get("slots") or [])
+                    if isinstance(slot, dict) and slot.get("item")
+                    and slot.get("quantity") is None
+                )
+                logger.warning("Invalid unknown-quantity counter in Discord report")
+            qty_unknown += parsed_count
+        if qty_unknown:
+            out.extend(["", f"Количество не распознано в ячейках: {qty_unknown}"])
         if au:
             ut = dc.get("unknown_title", "══════════Неизвестные предметы══════════")
             utpl = dc.get("unknown_item", "• {name}")

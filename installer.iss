@@ -3,7 +3,7 @@
 ; При изменении версии синхронно обновите version_info.txt и MyAppVersion.
 
 #define MyAppName "Chest Scanner"
-#define MyAppVersion "1.10.0"
+#define MyAppVersion "1.11.0"
 #define MyAppPublisher "vovapoop"
 #define MyAppCopyright "Copyright (C) 2026 vovapoop"
 #define MyAppExeName "ChestScanner.exe"
@@ -41,7 +41,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "dist\ChestScanner\ChestScanner.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\ChestScanner\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\ChestScanner\assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "dist\ChestScanner\items.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\ChestScanner\items.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall
 Source: "dist\ChestScanner\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]

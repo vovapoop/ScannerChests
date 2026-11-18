@@ -26,7 +26,76 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Lint (ruff)
-        run: python -m ruff check chest_scanner tests
+        run: python -m ruff check chest_scanner tests build_portable.py
 
       - name: Tests (pytest)
         run: python -m pytest tests -v
+  package:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build EXE and portable ZIP
+        shell: pwsh
+        run: |
+          python -m PyInstaller ChestScanner.spec --noconfirm --clean --distpath dist --workpath build/pyinstaller-work
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Path dist/ChestScanner/assets -Force | Out-Null
+          Copy-Item assets/* dist/ChestScanner/assets -Recurse -Force
+          Copy-Item items.json, LICENSE -Destination dist/ChestScanner -Force
+          python build_portable.py --dist dist/ChestScanner --output dist/ChestScanner-portable.zip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+          $iscc = Join-Path $programFilesX86 "Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found: $iscc" }
+          & $iscc installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path dist/ChestScannerSetup.exe)) { throw "Installer output is missing" }
+
+      - name: Prepare release artifacts and checksums
+        shell: pwsh
+        run: |
+          $versionLine = Select-String -Path installer.iss -Pattern '^#define MyAppVersion "([^"]+)"'
+          if (-not $versionLine) { throw "Installer version was not found" }
+          $version = $versionLine.Matches[0].Groups[1].Value
+          Copy-Item release_notes.md "dist/release-notes-v$version.md"
+          $files = @("dist/ChestScannerSetup.exe", "dist/ChestScanner-portable.zip")
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $(Split-Path $file -Leaf)"
+          }
+          [IO.File]::WriteAllLines("dist/SHA256SUMS.txt", $lines, [Text.Encoding]::UTF8)
+
+      - name: Upload release artifacts
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChestScanner-release-${{ github.sha }}
+          path: |
+            dist/ChestScannerSetup.exe
+            dist/ChestScanner-portable.zip
+            dist/SHA256SUMS.txt
+            dist/release-notes-v*.md
+          if-no-files-found: error
+          retention-days: 14

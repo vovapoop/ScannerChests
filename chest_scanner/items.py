@@ -6,6 +6,7 @@ import uuid
 
 import cv2
 
+from chest_scanner import paths
 from chest_scanner.commons import absolute_path
 
 
@@ -48,17 +49,32 @@ def is_safe_icon_path(path):
     Путь должен вести внутрь профиля (items/ или unknown_items/),
     не содержать ".." и абсолютных/UNC-компонентов.
     """
-    if not path or not isinstance(path, str):
+    if not path or not isinstance(path, str) or "\x00" in path:
         return False
-    n = path.replace("\\", "/").strip("/")
-    if n != n.lstrip(".") and ".." in n.split("/"):
-        return False
+    n = path.replace("\\", "/")
     parts = n.split("/")
     if not parts or any(p in ("", ".", "..") for p in parts):
         return False
-    if os.path.isabs(path) or ":" in parts[0]:
+    if os.path.isabs(path) or n.startswith("/") or ":" in parts[0]:
         return False
-    return parts[0] in ("items", "unknown_items")
+    if parts[0] not in ("items", "unknown_items"):
+        return False
+
+    # Lexical validation is not enough: a symlink inside the asset folder may
+    # point outside the active profile. Resolve both roots and target before
+    # accepting the reference. Non-existent image files remain valid refs so
+    # the UI can report them without dropping the corresponding item.
+    profile_root = os.path.realpath(paths.PROFILE_DIR)
+    asset_root = os.path.realpath(os.path.join(profile_root, parts[0]))
+    target = os.path.realpath(absolute_path(path))
+    try:
+        if os.path.commonpath((profile_root, asset_root)) != profile_root:
+            return False
+        if os.path.commonpath((asset_root, target)) != asset_root:
+            return False
+    except (OSError, ValueError):
+        return False
+    return True
 
 
 def normalize_items_db(data):
@@ -68,6 +84,7 @@ def normalize_items_db(data):
     if not isinstance(raw, list):
         raw = []
     out = []
+    used_ids = set()
     for r in raw:
         if not isinstance(r, dict):
             continue
@@ -84,7 +101,13 @@ def normalize_items_db(data):
             images.insert(0, old)
         images = [str(x) for x in images if x and is_safe_icon_path(x)]
         item = dict(r)
-        item["id"] = str(r.get("id") or uuid.uuid4())
+        item_id = str(r.get("id") or "").strip()
+        if not item_id or item_id in used_ids:
+            item_id = str(uuid.uuid4())
+            while item_id in used_ids:
+                item_id = str(uuid.uuid4())
+        used_ids.add(item_id)
+        item["id"] = item_id
         item["name"] = name
         item["images"] = images
         item["image"] = images[0] if images else ""
@@ -92,13 +115,9 @@ def normalize_items_db(data):
             item["stack_size"] = max(1, int(r.get("stack_size", 64)))
         except (TypeError, ValueError):
             item["stack_size"] = 64
-        al = r.get("aliases", [])
-        item["aliases"] = al if isinstance(al, list) else []
+        item.pop("aliases", None)
         item["enabled"] = bool(r.get("enabled", True))
         item["category"] = str(r.get("category", "uncategorized")).strip() or "uncategorized"
-        tags = r.get("tags", [])
-        if isinstance(tags, str):
-            tags = [t.strip() for t in tags.split(",") if t.strip()]
-        item["tags"] = tags if isinstance(tags, list) else []
+        item.pop("tags", None)
         out.append(item)
     return {"version": 3, "items": out}

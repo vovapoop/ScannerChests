@@ -82,6 +82,7 @@ QFrame#headerBar {{
     border: none;
 }}
 QPushButton {{
+    min-height: 30px;
     background: {panel2};
     color: {text};
     border: 1px solid {border};
@@ -113,6 +114,11 @@ QPushButton#accent:pressed {{
     background: {sel};
     border-color: {accent_h};
 }}
+QPushButton#accent:disabled {{
+    background: {panel};
+    border-color: {border};
+    color: {muted};
+}}
 QPushButton#danger {{
     background: transparent;
     color: {red};
@@ -139,6 +145,7 @@ QPushButton#ghost:checked {{
     font-weight: 600;
 }}
 QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox {{
+    min-height: 28px;
     background: {panel2};
     border: 1px solid {border};
     border-radius: 7px;
@@ -154,6 +161,7 @@ QLineEdit[mono="true"] {{
     font-size: 12px;
 }}
 QComboBox {{
+    min-height: 28px;
     background: {panel2};
     border: 1px solid {border};
     border-radius: 7px;
@@ -267,6 +275,7 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
 }}
 QCheckBox {{
     spacing: 8px;
+    min-height: 26px;
 }}
 QCheckBox::indicator {{
     width: 17px;
@@ -284,6 +293,7 @@ QCheckBox::indicator:checked {{
 }}
 QRadioButton {{
     spacing: 8px;
+    min-height: 26px;
 }}
 QRadioButton::indicator {{
     width: 16px;
@@ -317,7 +327,7 @@ QMenu {{
     padding: 5px;
 }}
 QMenu::item {{
-    padding: 7px 26px;
+    padding: 8px 28px;
     border-radius: 5px;
 }}
 QMenu::item:selected {{

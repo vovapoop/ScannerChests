@@ -182,7 +182,7 @@ def test_profile_registry_rejects_parent_symlink_escape(tmp_path, monkeypatch):
     }), encoding="utf-8")
     original = registry.read_bytes()
 
-    with pytest.raises(ValueError, match="??????? ?? ???????"):
+    with pytest.raises(ValueError, match="link or junction"):
         config_module.load_profiles()
 
     assert registry.read_bytes() == original
@@ -2052,7 +2052,7 @@ def test_profile_operation_journal_rejects_directory_and_special_file(
 
     def simulated_fifo(path):
         if os.path.abspath(path) == os.path.abspath(journal_path):
-            return SimpleNamespace(st_mode=stat.S_IFIFO)
+            return SimpleNamespace(st_mode=stat.S_IFIFO, st_reparse_tag=0)
         return original_lstat(path)
 
     monkeypatch.setattr(config_module.os, "lstat", simulated_fifo)
